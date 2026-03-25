@@ -149,7 +149,8 @@ export default function PdfViewer({ open, documentId, onClose }: PdfViewerProps)
       const renderTask = page.render({
         canvasContext: ctx,
         viewport,
-      });
+        canvas,
+      } as any);
       renderTaskRef.current = renderTask;
       await renderTask.promise;
     } catch {
