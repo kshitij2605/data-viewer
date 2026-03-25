@@ -44,14 +44,21 @@ def decode_token(token: str) -> dict:
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    token: Optional[str] = None,
     db: Session = Depends(get_db),
 ) -> User:
-    if credentials is None:
+    # Support token via query param (for <img src> tags that can't set headers)
+    raw_token = None
+    if credentials is not None:
+        raw_token = credentials.credentials
+    elif token:
+        raw_token = token
+    if raw_token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
-    payload = decode_token(credentials.credentials)
+    payload = decode_token(raw_token)
     user_id = int(payload["sub"])
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:

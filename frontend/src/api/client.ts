@@ -27,4 +27,12 @@ client.interceptors.response.use(
   },
 );
 
+/** Append ?token=... to a URL so <img src> can authenticate */
+export function withToken(url: string): string {
+  const token = localStorage.getItem('token');
+  if (!token) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}token=${encodeURIComponent(token)}`;
+}
+
 export default client;

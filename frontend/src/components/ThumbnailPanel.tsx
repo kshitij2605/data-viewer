@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import { useChunkStore } from '../stores/chunkStore.ts';
+import { withToken } from '../api/client.ts';
 
 const css = {
   container: {
@@ -127,7 +128,7 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
   const numPages = doc?.num_pages ?? 0;
 
   const thumbnailUrl = doc
-    ? `/api/documents/${doc.id}/page/${pageNum}/thumbnail`
+    ? withToken(`/api/documents/${doc.id}/page/${pageNum}/thumbnail`)
     : null;
 
   const layoutPages = useMemo(() => {
@@ -179,7 +180,7 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
         <div style={css.miniGrid}>
           {layoutPages.slice(0, 20).map((p) => {
             const isActive = p === pageNum;
-            const src = doc ? `/api/documents/${doc.id}/page/${p}/thumbnail` : '';
+            const src = doc ? withToken(`/api/documents/${doc.id}/page/${p}/thumbnail`) : '';
             return (
               <img
                 key={p}
@@ -224,7 +225,7 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
             </div>
           ) : (
             chunkImages.map((ref) => {
-              const imgSrc = doc ? `/api/documents/${doc.id}/images/${ref}` : '';
+              const imgSrc = doc ? withToken(`/api/documents/${doc.id}/images/${ref}`) : '';
               return (
                 <motion.img
                   key={ref}

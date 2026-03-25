@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import { getImagesOnly } from '../api/documents.ts';
 import type { ImageWithCaption } from '../api/documents.ts';
+import { withToken } from '../api/client.ts';
 
 const css = {
   container: {
@@ -115,7 +116,7 @@ export default function ImagesOnlyView({ onImageClick }: ImagesOnlyViewProps) {
             {images.map((img, idx) => {
               const imgName = img.image_path.replace('images/', '');
               const imgSrc = doc
-                ? `/api/documents/${doc.id}/images/${imgName}`
+                ? withToken(`/api/documents/${doc.id}/images/${imgName}`)
                 : '';
               return (
                 <motion.div
