@@ -16,12 +16,12 @@ export interface DocumentDetail extends Document {
 }
 
 export interface Table {
-  page_number: number;
-  table_markdown: string;
+  description: string;
+  content: string;
 }
 
 export interface ImageWithCaption {
-  image_ref: string;
+  image_path: string;
   caption: string;
 }
 

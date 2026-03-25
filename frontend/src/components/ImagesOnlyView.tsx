@@ -113,8 +113,9 @@ export default function ImagesOnlyView({ onImageClick }: ImagesOnlyViewProps) {
         <div style={css.grid}>
           <AnimatePresence>
             {images.map((img, idx) => {
+              const imgName = img.image_path.replace('images/', '');
               const imgSrc = doc
-                ? `/api/documents/${doc.id}/images/${img.image_ref}`
+                ? `/api/documents/${doc.id}/images/${imgName}`
                 : '';
               return (
                 <motion.div
@@ -127,17 +128,17 @@ export default function ImagesOnlyView({ onImageClick }: ImagesOnlyViewProps) {
                     boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
                     transform: 'translateY(-2px)',
                   }}
-                  onClick={() => onImageClick?.(imgSrc, img.caption || img.image_ref)}
+                  onClick={() => onImageClick?.(imgSrc, img.caption || img.image_path)}
                 >
                   <div style={css.imageWrap}>
                     <img
                       src={imgSrc}
-                      alt={img.caption || img.image_ref}
+                      alt={img.caption || img.image_path}
                       style={css.image}
                     />
                   </div>
                   <div style={css.caption}>
-                    {img.caption || img.image_ref}
+                    {img.caption || img.image_path}
                   </div>
                 </motion.div>
               );

@@ -115,11 +115,11 @@ export default function TablesOnlyView() {
                 transition={{ duration: 0.2, delay: idx * 0.05 }}
               >
                 <div style={css.cardHeader}>
-                  ページ {t.page_number} &mdash; テーブル {idx + 1}
+                  {t.description || `テーブル ${idx + 1}`}
                 </div>
                 <div className="table-card" style={css.cardBody}>
                   <Markdown remarkPlugins={[remarkGfm]}>
-                    {t.table_markdown}
+                    {t.content}
                   </Markdown>
                 </div>
               </motion.div>
