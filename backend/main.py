@@ -25,4 +25,11 @@ app.add_middleware(
 )
 
 from backend.api.auth import router as auth_router  # noqa: E402
+from backend.api.documents import router as documents_router  # noqa: E402
+from backend.api.files import router as files_router  # noqa: E402
+from backend.api.views import router as views_router  # noqa: E402
+
 app.include_router(auth_router)
+app.include_router(documents_router)
+app.include_router(files_router)
+app.include_router(views_router)
