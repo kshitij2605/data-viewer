@@ -153,12 +153,13 @@ Pre-seeded users: `admin/admin` (Admin User), `reviewer1/reviewer1` (Reviewer 1)
 ### Chunks
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/documents/{id}/chunk` | Trigger chunking. Body: `{strategy, chunk_size, chunk_overlap}`. Replaces existing chunks (CASCADE deletes edits/feedback — UI shows confirmation dialog before re-chunking). Uses FastAPI `BackgroundTasks` for semantic strategy; returns task ID, client polls for completion via SSE. |
+| POST | `/api/documents/{id}/chunk` | Trigger chunking. Body: `{strategy, chunk_size, chunk_overlap, similarity_threshold?, min_chunk_size?}` (params vary by strategy). Replaces existing chunks (CASCADE deletes edits/feedback — UI shows confirmation dialog before re-chunking). Uses FastAPI `BackgroundTasks` for semantic strategy; returns task ID, client polls for completion via SSE. |
 | GET | `/api/documents/{id}/chunks` | List chunks. Query params: `?search=keyword&page=1&per_page=15` |
 | GET | `/api/documents/{id}/chunks/{chunk_id}` | Single chunk detail |
-| PUT | `/api/chunks/{id}/edit` | Save edited content. Body: `{modified_content}`. Stores original + modified for diff. `chunks.content` is NOT updated — the canonical text for display is `chunk_edits.modified_content` when it exists, otherwise `chunks.content`. Search queries check both. |
+| PUT | `/api/chunks/{id}/edit` | Save edited content (upsert — repeated saves overwrite existing edit). Body: `{modified_content}`. Stores original + modified for diff. `chunks.content` is NOT updated — the canonical text for display is `chunk_edits.modified_content` when it exists, otherwise `chunks.content`. Search queries check both. |
 | GET | `/api/chunks/{id}/diff` | Returns `{original, modified}` for diff view |
 | DELETE | `/api/chunks/{id}/edit` | Revert to original — deletes the chunk_edit record, restoring `chunks.content` as canonical |
+| GET | `/api/documents/{id}/chunk-status` | SSE endpoint for chunking progress. Returns events: `{status: "processing"|"complete"|"error", progress?: number, total?: number}`. Used when semantic chunking runs as a background task. |
 
 ### Feedback
 | Method | Path | Description |
@@ -365,8 +366,8 @@ SQLite-backed with pre-seeded users. JWT token-based sessions.
 
 ## Technical Notes
 
-- **SQLite WAL mode:** `db.py` enables WAL mode (`PRAGMA journal_mode=WAL`) for concurrent read/write support across multiple reviewers.
+- **SQLite WAL mode:** `db.py` enables WAL mode (`PRAGMA journal_mode=WAL`) and foreign keys (`PRAGMA foreign_keys=ON`) for concurrent read/write support and CASCADE enforcement.
 - **CORS:** FastAPI middleware configured for development (Vite dev server on different port). Production serves everything from one origin.
-- **Semantic chunking async:** The embedding call for semantic chunking runs as a FastAPI BackgroundTask. The endpoint returns immediately with a task ID. The frontend polls via SSE (`/api/documents/{id}/chunk-status`) until completion, showing a progress skeleton in the chunk table.
+- **Semantic chunking async:** The embedding call for semantic chunking runs as a FastAPI BackgroundTask. The endpoint returns immediately with a task ID. Task state tracked in an in-memory dict (`{task_id: {status, progress, total, result}}`). The frontend polls via SSE (`/api/documents/{id}/chunk-status`) until completion, showing a progress skeleton in the chunk table.
 - **Chunk text canonical source:** `chunks.content` stores the original chunked text. `chunk_edits.modified_content` stores user edits. The display layer prefers `modified_content` when a `chunk_edit` exists. Search queries use `COALESCE(chunk_edits.modified_content, chunks.content)`.
 - **Minimum viewport:** 1280px width. No mobile responsive design required (internal desktop tool).
