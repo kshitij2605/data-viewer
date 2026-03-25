@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.env
+data/
+*.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Thumbnails cache
+data/thumbnails/
+
+# Superpowers
+.superpowers/
