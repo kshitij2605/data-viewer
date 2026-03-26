@@ -10,7 +10,7 @@ const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: string }[] = [
   { mode: 'markdown', label: 'Markdown', icon: '&#x23CE;' },
   { mode: 'text', label: 'テキスト', icon: '&#x1D5AB;' },
   { mode: 'tables', label: 'テーブル', icon: '&#x25A6;' },
-  { mode: 'images', label: '画像', icon: '&#x25A3;' },
+  { mode: 'images', label: '画像', icon: '&#x1F5BC;' },
 ];
 
 const css = {
@@ -224,7 +224,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-primary)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-sidebar-text)'; }}
           >
-            {collapsed ? '\u25B6' : '\u25C0'}
+            {'\u2630'}
           </button>
         </div>
 
