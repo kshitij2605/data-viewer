@@ -25,6 +25,7 @@ const layoutCss = {
     flexDirection: 'column' as const,
     height: '100vh',
     overflow: 'hidden',
+    background: 'var(--color-bg)',
   },
   body: {
     display: 'flex',
@@ -36,7 +37,7 @@ const layoutCss = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column' as const,
-    padding: '10px',
+    padding: '12px',
     gap: '10px',
     overflow: 'hidden',
     minWidth: 0,
@@ -48,8 +49,10 @@ function App() {
   const viewMode = useDocumentStore((s) => s.viewMode);
   const selectedDoc = useDocumentStore((s) => s.selectedDocument);
 
-  // Sidebar toggle for mobile
+  // Sidebar toggle for mobile overlay
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sidebar collapse for desktop
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Image modal state
   const [imageModal, setImageModal] = useState({ open: false, src: '', alt: '' });
@@ -80,7 +83,6 @@ function App() {
   }, []);
 
   const handleHomeClick = useCallback(() => {
-    // Reset to default view
     useDocumentStore.getState().setViewMode('chunks');
   }, []);
 
@@ -172,7 +174,12 @@ function App() {
           className={`sidebar-backdrop${sidebarOpen ? ' visible' : ''}`}
           onClick={() => setSidebarOpen(false)}
         />
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        />
         <main style={layoutCss.main}>
           <AnimatePresence mode="wait">
             {renderContent()}

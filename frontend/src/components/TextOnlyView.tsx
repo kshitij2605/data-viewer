@@ -7,10 +7,11 @@ const css = {
   container: {
     flex: 1,
     overflow: 'auto',
-    padding: '20px 24px',
+    padding: '24px',
     background: 'var(--color-surface)',
-    borderRadius: '6px',
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--color-border)',
+    boxShadow: 'var(--shadow-xs)',
   },
   content: {
     maxWidth: '700px',
@@ -22,24 +23,24 @@ const css = {
     color: 'var(--color-text)',
     marginBottom: '16px',
     padding: '8px 0',
-    borderBottom: '1px solid #f0f0f0',
+    borderBottom: '1px solid var(--color-border-light)',
   },
   loading: {
     padding: '40px',
     textAlign: 'center' as const,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     fontSize: '13px',
   },
   error: {
     padding: '20px',
     textAlign: 'center' as const,
-    color: '#dc2626',
+    color: 'var(--color-error)',
     fontSize: '13px',
   },
   empty: {
     padding: '40px',
     textAlign: 'center' as const,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     fontSize: '13px',
   },
 } as const;

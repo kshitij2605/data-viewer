@@ -10,10 +10,11 @@ const css = {
   container: {
     flex: 1,
     overflow: 'auto',
-    padding: '20px 24px',
+    padding: '24px',
     background: 'var(--color-surface)',
-    borderRadius: '6px',
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--color-border)',
+    boxShadow: 'var(--shadow-xs)',
   },
   grid: {
     display: 'flex',
@@ -25,48 +26,49 @@ const css = {
   card: {
     background: 'var(--color-surface)',
     border: '1px solid var(--color-border)',
-    borderRadius: '6px',
+    borderRadius: 'var(--radius-md)',
     overflow: 'hidden',
-    boxShadow: 'var(--shadow-sm)',
+    boxShadow: 'var(--shadow-xs)',
   },
   cardHeader: {
-    padding: '8px 14px',
-    background: 'var(--color-bg)',
+    padding: '9px 16px',
+    background: 'var(--color-surface-raised)',
     borderBottom: '1px solid var(--color-border)',
     fontSize: '12px',
     fontWeight: 600,
+    fontFamily: 'var(--font-display)',
     color: 'var(--color-text-secondary)',
   },
   cardBody: {
-    padding: '12px 14px',
+    padding: '14px 16px',
     fontSize: '13px',
     overflow: 'auto',
   },
   loading: {
     padding: '40px',
     textAlign: 'center' as const,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     fontSize: '13px',
   },
   error: {
     padding: '20px',
     textAlign: 'center' as const,
-    color: '#dc2626',
+    color: 'var(--color-error)',
     fontSize: '13px',
   },
   empty: {
     padding: '40px',
     textAlign: 'center' as const,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     fontSize: '13px',
   },
 } as const;
 
 const tableStyles = `
 .table-card table { border-collapse: collapse; width: 100%; font-size: 12px; }
-.table-card th, .table-card td { border: 1px solid var(--color-border); padding: 6px 10px; text-align: left; }
-.table-card th { background: var(--color-bg); font-weight: 600; font-size: 11px; }
-.table-card tr:hover { background: #f8f9fa; }
+.table-card th, .table-card td { border: 1px solid var(--color-border); padding: 7px 12px; text-align: left; }
+.table-card th { background: var(--color-surface-raised); font-weight: 600; font-size: 11px; font-family: var(--font-display); }
+.table-card tr:hover { background: var(--color-surface-raised); }
 `;
 
 export default function TablesOnlyView() {

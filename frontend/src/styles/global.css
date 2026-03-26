@@ -1,26 +1,66 @@
 /* ============================================================
-   Global Styles — 大塚商会 Data Viewer Theme
+   Global Styles — 大塚商会 Data Viewer
+   Editorial Japanese / Warm Industrial aesthetic
    ============================================================ */
 
 :root {
-  /* Brand colours */
+  /* Brand */
   --color-primary: #e63946;
   --color-primary-dark: #c1121f;
-  --color-bg: #f8f9fa;
+  --color-primary-light: #ff6b6b;
+  --color-primary-ghost: rgba(230, 57, 70, 0.08);
+  --color-primary-glow: rgba(230, 57, 70, 0.15);
+
+  /* Surfaces */
+  --color-bg: #f5f3ef;
+  --color-bg-warm: #ece8e1;
   --color-surface: #ffffff;
-  --color-text: #2b2d42;
-  --color-text-secondary: #6c757d;
-  --color-border: #dee2e6;
-  --color-highlight: #fff3cd;
+  --color-surface-raised: #faf9f7;
+  --color-surface-inset: #f0ede8;
+
+  /* Text */
+  --color-text: #1a1a2e;
+  --color-text-secondary: #6b6b80;
+  --color-text-muted: #9b9bab;
+
+  /* Borders */
+  --color-border: #ddd9d2;
+  --color-border-light: #eae6df;
+  --color-border-strong: #c5c0b8;
+
+  /* Accents */
+  --color-highlight: #fff8e1;
+  --color-success: #2d9f6f;
+  --color-error: #dc2626;
+
+  /* Sidebar (dark navy) */
+  --color-sidebar-bg: #1a1a2e;
+  --color-sidebar-surface: #22223a;
+  --color-sidebar-text: #c5c5d8;
+  --color-sidebar-text-active: #ffffff;
+  --color-sidebar-border: #2e2e48;
+
+  /* Typography */
+  --font-display: 'DM Sans', 'Zen Kaku Gothic New', sans-serif;
+  --font-body: 'Zen Kaku Gothic New', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 
   /* Transitions */
-  --transition-fast: 100ms ease;
-  --transition-normal: 200ms ease;
+  --transition-fast: 80ms ease;
+  --transition-normal: 180ms ease;
+  --transition-smooth: 280ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.15);
+  --shadow-xs: 0 1px 2px rgba(26, 26, 46, 0.04);
+  --shadow-sm: 0 1px 3px rgba(26, 26, 46, 0.06), 0 1px 2px rgba(26, 26, 46, 0.04);
+  --shadow-md: 0 4px 12px rgba(26, 26, 46, 0.08), 0 1px 3px rgba(26, 26, 46, 0.04);
+  --shadow-lg: 0 12px 32px rgba(26, 26, 46, 0.12), 0 4px 8px rgba(26, 26, 46, 0.06);
+  --shadow-xl: 0 20px 48px rgba(26, 26, 46, 0.16);
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
 
 /* ---- Reset & base ---- */
@@ -39,8 +79,7 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans',
-    'Noto Sans JP', sans-serif;
+  font-family: var(--font-body);
   color: var(--color-text);
   background-color: var(--color-bg);
   line-height: 1.6;
@@ -48,31 +87,44 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Subtle noise texture on body */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px;
+}
+
 /* ---- Scrollbar ---- */
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-secondary);
+  background: var(--color-text-muted);
 }
 
-/* ---- Utility ---- */
+/* ---- Base elements ---- */
 
 a {
   color: var(--color-primary);
   text-decoration: none;
+  transition: color var(--transition-fast);
 }
 
 a:hover {
@@ -91,7 +143,21 @@ img {
 
 code,
 pre {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: var(--font-mono);
+}
+
+/* ---- Selection ---- */
+
+::selection {
+  background: var(--color-primary-glow);
+  color: var(--color-text);
+}
+
+/* ---- Focus visible ---- */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* ============================================================
@@ -103,8 +169,8 @@ pre {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(2px);
+  background: rgba(26, 26, 46, 0.5);
+  backdrop-filter: blur(4px);
   z-index: 199;
 }
 
@@ -120,13 +186,13 @@ pre {
   font-size: 20px;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--color-text);
-  transition: background 100ms ease;
+  transition: background var(--transition-fast);
 }
 
 .hamburger-btn:hover {
-  background: var(--color-bg);
+  background: var(--color-surface-inset);
 }
 
 /* Tablet: <= 1024px */
@@ -178,14 +244,14 @@ pre {
     z-index: 200;
     transform: translateX(-100%);
     transition: transform 250ms ease;
-    width: 240px !important;
-    min-width: 240px !important;
+    width: 260px !important;
+    min-width: 260px !important;
     box-shadow: none;
   }
 
   .app-sidebar.open {
     transform: translateX(0);
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+    box-shadow: 8px 0 32px rgba(26, 26, 46, 0.25);
   }
 
   .header-date {
@@ -242,4 +308,38 @@ pre {
   .images-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
   }
+}
+
+/* ---- Resize handle ---- */
+
+.resize-handle {
+  height: 8px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-inset);
+  border-top: 1px solid var(--color-border);
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: var(--color-primary-ghost);
+}
+
+.resize-handle::after {
+  content: '';
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-border-strong);
+  transition: background var(--transition-fast);
+}
+
+.resize-handle:hover::after,
+.resize-handle.active::after {
+  background: var(--color-primary);
 }

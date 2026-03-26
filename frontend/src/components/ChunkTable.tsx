@@ -18,58 +18,64 @@ const css = {
     display: 'flex',
     flexDirection: 'column' as const,
     background: 'var(--color-surface)',
-    borderRadius: '6px',
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--color-border)',
     overflow: 'hidden',
     minHeight: 0,
+    boxShadow: 'var(--shadow-xs)',
   },
   toolbar: {
-    padding: '8px 12px',
+    padding: '9px 14px',
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
     borderBottom: '1px solid var(--color-border)',
-    background: 'var(--color-bg)',
+    background: 'var(--color-surface-raised)',
     flexShrink: 0,
   },
   toolbarLabel: {
     fontSize: '13px',
     fontWeight: 600,
+    fontFamily: 'var(--font-display)',
     color: 'var(--color-text)',
     whiteSpace: 'nowrap' as const,
   },
   select: {
     padding: '5px 10px',
     border: '1px solid var(--color-border)',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     fontSize: '12px',
     fontFamily: 'inherit',
     background: 'var(--color-surface)',
     cursor: 'pointer',
     outline: 'none',
+    color: 'var(--color-text)',
   },
   chunkBtn: {
-    padding: '5px 14px',
+    padding: '6px 14px',
     background: 'var(--color-primary)',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     fontSize: '12px',
     fontWeight: 600,
+    fontFamily: 'var(--font-display)',
     cursor: 'pointer',
-    transition: 'background 100ms ease',
-    fontFamily: 'inherit',
+    transition: 'background var(--transition-fast)',
+    letterSpacing: '0.3px',
   },
   searchInput: {
     marginLeft: 'auto',
     padding: '5px 10px',
     border: '1px solid var(--color-border)',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     fontSize: '12px',
     fontFamily: 'inherit',
     outline: 'none',
     width: '160px',
-    transition: 'border-color 100ms ease',
+    transition: 'border-color var(--transition-fast)',
+    background: 'var(--color-surface)',
+    color: 'var(--color-text)',
   },
   tableWrap: {
     flex: 1,
@@ -86,30 +92,31 @@ const css = {
   th: {
     position: 'sticky' as const,
     top: 0,
-    background: 'var(--color-bg)',
+    background: 'var(--color-surface-raised)',
     borderBottom: '2px solid var(--color-border)',
-    padding: '8px 10px',
+    padding: '9px 12px',
     textAlign: 'left' as const,
     fontWeight: 600,
-    color: 'var(--color-text-secondary)',
-    fontSize: '11px',
-    letterSpacing: '0.3px',
+    fontFamily: 'var(--font-display)',
+    color: 'var(--color-text-muted)',
+    fontSize: '10px',
+    letterSpacing: '0.8px',
+    textTransform: 'uppercase' as const,
     whiteSpace: 'nowrap' as const,
     zIndex: 1,
   },
   td: {
-    padding: '8px 10px',
-    borderBottom: '1px solid var(--color-border)',
+    padding: '9px 12px',
+    borderBottom: '1px solid var(--color-border-light)',
     verticalAlign: 'top' as const,
     color: 'var(--color-text)',
   },
   row: {
     cursor: 'pointer',
-    transition: 'background 150ms ease, box-shadow 150ms ease',
+    transition: 'background var(--transition-fast)',
   },
   rowSelected: {
-    background: '#e8f4fd',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+    background: 'var(--color-primary-ghost)',
   },
   chunkText: {
     display: '-webkit-box',
@@ -120,11 +127,12 @@ const css = {
     maxWidth: '400px',
   },
   modifiedDot: {
-    width: '8px',
-    height: '8px',
+    width: '7px',
+    height: '7px',
     borderRadius: '50%',
     background: 'var(--color-primary)',
     display: 'inline-block',
+    boxShadow: '0 0 4px var(--color-primary-glow)',
   },
   feedbackEmoji: {
     fontSize: '16px',
@@ -147,20 +155,21 @@ const css = {
     gap: '4px',
     padding: '8px 12px',
     borderTop: '1px solid var(--color-border)',
-    background: 'var(--color-bg)',
+    background: 'var(--color-surface-raised)',
     flexShrink: 0,
   },
   pageBtn: {
     padding: '4px 8px',
     border: '1px solid var(--color-border)',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     background: 'var(--color-surface)',
     fontSize: '12px',
     cursor: 'pointer',
-    fontFamily: 'inherit',
-    transition: 'all 100ms ease',
+    fontFamily: 'var(--font-mono)',
+    transition: 'all var(--transition-fast)',
     minWidth: '28px',
     textAlign: 'center' as const,
+    color: 'var(--color-text)',
   },
   pageBtnActive: {
     background: 'var(--color-primary)',
@@ -173,22 +182,22 @@ const css = {
     cursor: 'default',
   },
   skeleton: {
-    background: 'linear-gradient(90deg, var(--color-bg) 25%, #e9ecef 50%, var(--color-bg) 75%)',
+    background: 'linear-gradient(90deg, var(--color-surface-inset) 25%, var(--color-border-light) 50%, var(--color-surface-inset) 75%)',
     backgroundSize: '200% 100%',
     animation: 'shimmer 1.5s infinite',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     height: '14px',
   },
   emptyState: {
     padding: '40px 20px',
     textAlign: 'center' as const,
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     fontSize: '13px',
   },
   confirmOverlay: {
     position: 'fixed' as const,
     inset: 0,
-    background: 'rgba(0,0,0,0.4)',
+    background: 'rgba(26, 26, 46, 0.5)',
     backdropFilter: 'blur(4px)',
     display: 'flex',
     alignItems: 'center',
@@ -197,23 +206,33 @@ const css = {
   },
   confirmDialog: {
     background: 'var(--color-surface)',
-    borderRadius: '8px',
-    boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
-    padding: '24px 28px',
-    width: '360px',
+    borderRadius: 'var(--radius-lg)',
+    boxShadow: 'var(--shadow-xl)',
+    padding: '28px 32px',
+    width: '380px',
     maxWidth: '90vw',
-    borderTop: '3px solid var(--color-primary)',
+    position: 'relative' as const,
+    overflow: 'hidden',
+  },
+  confirmAccent: {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '3px',
+    background: 'var(--color-primary)',
   },
   confirmTitle: {
-    fontSize: '15px',
+    fontSize: '16px',
     fontWeight: 700,
+    fontFamily: 'var(--font-display)',
     marginBottom: '12px',
     color: 'var(--color-text)',
   },
   confirmText: {
     fontSize: '13px',
     color: 'var(--color-text-secondary)',
-    marginBottom: '20px',
+    marginBottom: '24px',
     lineHeight: 1.6,
   },
   confirmActions: {
@@ -264,8 +283,13 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
   } = useChunkStore();
 
   const [strategy, setStrategy] = useState('recursive');
+  const [chunkSize, setChunkSize] = useState(2000);
+  const [chunkOverlap, setChunkOverlap] = useState(200);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
+
+  // Which strategies support chunk_size/overlap params
+  const showSizeParams = ['character', 'recursive', 'markdown', 'semantic'].includes(strategy);
 
   const docId = doc?.id;
 
@@ -287,7 +311,10 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
     setConfirmOpen(false);
     if (!docId) return;
     try {
-      await triggerChunking(docId, strategy);
+      await triggerChunking(docId, strategy, {
+        chunk_size: chunkSize,
+        chunk_overlap: chunkOverlap,
+      });
     } catch {
       // error handled by store
     }
@@ -300,7 +327,6 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
 
   return (
     <div style={css.container}>
-      {/* Shimmer keyframes */}
       <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
 
       <div className="chunk-toolbar" style={css.toolbar}>
@@ -314,6 +340,32 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
             <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </select>
+        {showSizeParams && (
+          <>
+            <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)' }}>
+              サイズ
+            </label>
+            <input
+              type="number"
+              value={chunkSize}
+              onChange={(e) => setChunkSize(Math.max(100, parseInt(e.target.value) || 100))}
+              style={{ ...css.searchInput, width: '70px', marginLeft: 0, fontFamily: 'var(--font-mono)', textAlign: 'right' as const }}
+              min={100}
+              step={100}
+            />
+            <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)' }}>
+              重複
+            </label>
+            <input
+              type="number"
+              value={chunkOverlap}
+              onChange={(e) => setChunkOverlap(Math.max(0, parseInt(e.target.value) || 0))}
+              style={{ ...css.searchInput, width: '60px', marginLeft: 0, fontFamily: 'var(--font-mono)', textAlign: 'right' as const }}
+              min={0}
+              step={50}
+            />
+          </>
+        )}
         <button
           style={{ ...css.chunkBtn, opacity: !docId || isChunking ? 0.6 : 1 }}
           onClick={handleChunk}
@@ -360,10 +412,10 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
                   return (
                     <motion.tr
                       key={chunk.id}
-                      initial={{ opacity: 0, y: 8 }}
+                      initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.15, delay: idx * 0.02 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.12, delay: idx * 0.02 }}
                       style={{
                         ...css.row,
                         ...(isSelected ? css.rowSelected : {}),
@@ -371,7 +423,7 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
                       onClick={() => handleRowClick(chunk)}
                       onMouseEnter={(e) => {
                         if (!isSelected) {
-                          (e.currentTarget as HTMLElement).style.background = '#f8f9fa';
+                          (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-raised)';
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -380,7 +432,11 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
                         }
                       }}
                     >
-                      <td style={css.td}>{chunk.chunk_index + 1}</td>
+                      <td style={css.td}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                          {chunk.chunk_index + 1}
+                        </span>
+                      </td>
                       <td style={css.td}>
                         <div className="chunk-text-cell" style={css.chunkText}>{chunk.content}</div>
                       </td>
@@ -426,7 +482,7 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
           </button>
           {buildPageNumbers(page, totalPages).map((p, i) =>
             p === '...' ? (
-              <span key={`e${i}`} style={{ padding: '0 4px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>...</span>
+              <span key={`e${i}`} style={{ padding: '0 4px', fontSize: '12px', color: 'var(--color-text-muted)' }}>...</span>
             ) : (
               <button
                 key={p}
@@ -470,21 +526,26 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={(e) => e.stopPropagation()}
             >
+              <div style={css.confirmAccent} />
               <div style={css.confirmTitle}>チャンク処理の確認</div>
               <div style={css.confirmText}>
                 ストラテジー「{STRATEGIES.find((s) => s.value === strategy)?.label}」でチャンク処理を実行します。
-                既存のチャンクは上書きされます。よろしいですか？
+                {showSizeParams && (
+                  <><br />サイズ: {chunkSize} / 重複: {chunkOverlap}</>
+                )}
+                <br />既存のチャンクは上書きされます。よろしいですか？
               </div>
               <div style={css.confirmActions}>
                 <button
                   style={{
                     padding: '8px 18px',
                     border: '1px solid var(--color-border)',
-                    borderRadius: '6px',
+                    borderRadius: 'var(--radius-md)',
                     background: 'var(--color-surface)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontFamily: 'inherit',
+                    fontFamily: 'var(--font-display)',
+                    color: 'var(--color-text-secondary)',
                   }}
                   onClick={() => setConfirmOpen(false)}
                 >

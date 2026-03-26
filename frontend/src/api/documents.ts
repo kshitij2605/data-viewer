@@ -23,6 +23,7 @@ export interface Table {
 export interface ImageWithCaption {
   image_path: string;
   caption: string;
+  image_type?: string;
 }
 
 export async function loadFolder(folderPath: string): Promise<Document> {

@@ -3,15 +3,15 @@ import { useAuthStore } from '../stores/authStore.ts';
 
 const css = {
   footer: {
-    height: '28px',
+    height: '30px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '0 12px',
+    padding: '0 16px',
     background: 'var(--color-surface)',
     borderTop: '1px solid var(--color-border)',
     fontSize: '11px',
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     flexShrink: 0,
   },
   left: {
@@ -23,8 +23,15 @@ const css = {
     width: '6px',
     height: '6px',
     borderRadius: '50%',
-    background: '#22c55e',
+    background: 'var(--color-success)',
     flexShrink: 0,
+    boxShadow: '0 0 6px rgba(45, 159, 111, 0.4)',
+  },
+  userDetails: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '10px',
+    letterSpacing: '0.3px',
+    color: 'var(--color-text-muted)',
   },
   right: {
     display: 'flex',
@@ -37,9 +44,9 @@ const css = {
     fontSize: '13px',
     cursor: 'pointer',
     padding: '2px 4px',
-    borderRadius: '3px',
-    transition: 'background 100ms ease',
-    color: 'var(--color-text-secondary)',
+    borderRadius: 'var(--radius-sm)',
+    transition: 'background var(--transition-fast)',
+    color: 'var(--color-text-muted)',
     display: 'flex',
     alignItems: 'center',
   },
@@ -54,6 +61,7 @@ const css = {
     justifyContent: 'center',
     fontSize: '9px',
     fontWeight: 700,
+    fontFamily: 'var(--font-display)',
     flexShrink: 0,
   },
 } as const;
@@ -72,9 +80,9 @@ export default function Footer() {
       <div style={css.left}>
         <span style={css.statusDot} />
         {user && (
-          <span className="footer-user-details">
+          <span className="footer-user-details" style={css.userDetails}>
             <span>{user.username}</span>
-            <span style={{ color: '#ccc' }}> | </span>
+            <span style={{ color: 'var(--color-border)', margin: '0 4px' }}>|</span>
             <span>{user.display_name}</span>
           </span>
         )}
@@ -83,7 +91,7 @@ export default function Footer() {
         <button
           style={css.iconBtn}
           title="設定"
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-bg)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
         >
           &#x2699;

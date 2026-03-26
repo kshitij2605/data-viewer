@@ -5,13 +5,13 @@ const css = {
   overlay: {
     position: 'fixed' as const,
     inset: 0,
-    background: 'rgba(0,0,0,0.75)',
+    background: 'rgba(26, 26, 46, 0.8)',
     backdropFilter: 'blur(8px)',
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'center',
     zIndex: 2000,
-    cursor: 'zoom-out',
+    padding: '24px',
   },
   closeBtn: {
     position: 'absolute' as const,
@@ -20,7 +20,7 @@ const css = {
     width: '36px',
     height: '36px',
     borderRadius: '50%',
-    background: 'rgba(255,255,255,0.15)',
+    background: 'rgba(255,255,255,0.12)',
     border: 'none',
     color: '#fff',
     fontSize: '18px',
@@ -28,46 +28,73 @@ const css = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'background 100ms ease',
+    transition: 'background var(--transition-fast)',
     zIndex: 10,
   },
-  imageContainer: {
-    position: 'relative' as const,
-    maxWidth: '90vw',
-    maxHeight: '85vh',
-    cursor: 'grab',
+  splitContainer: {
+    display: 'flex',
+    width: '100%',
+    maxWidth: '1200px',
+    height: '100%',
+    gap: '0',
+    borderRadius: 'var(--radius-lg)',
     overflow: 'hidden',
+    background: 'var(--color-surface)',
+    boxShadow: 'var(--shadow-xl)',
+  },
+  imagePane: {
+    flex: 3,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#0a0a14',
+    position: 'relative' as const,
+    overflow: 'hidden',
+    cursor: 'grab',
+    minWidth: 0,
   },
   image: {
-    maxWidth: '90vw',
-    maxHeight: '85vh',
+    maxWidth: '100%',
+    maxHeight: '100%',
     objectFit: 'contain' as const,
-    borderRadius: '4px',
     userSelect: 'none' as const,
     pointerEvents: 'none' as const,
   },
-  info: {
-    position: 'absolute' as const,
-    bottom: '16px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    background: 'rgba(0,0,0,0.6)',
-    color: '#fff',
-    padding: '6px 16px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    whiteSpace: 'nowrap' as const,
-    zIndex: 10,
+  captionPane: {
+    flex: 1,
+    minWidth: '240px',
+    maxWidth: '360px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    padding: '28px 24px',
+    overflowY: 'auto' as const,
+    background: 'var(--color-surface)',
+    borderLeft: '1px solid var(--color-border)',
+  },
+  captionLabel: {
+    fontSize: '10px',
+    fontWeight: 600,
+    fontFamily: 'var(--font-display)',
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '1.5px',
+    marginBottom: '12px',
+  },
+  captionText: {
+    fontSize: '14px',
+    lineHeight: 1.8,
+    color: 'var(--color-text)',
   },
   zoomIndicator: {
     position: 'absolute' as const,
-    top: '16px',
-    left: '16px',
-    background: 'rgba(0,0,0,0.5)',
+    bottom: '12px',
+    left: '12px',
+    background: 'rgba(0,0,0,0.6)',
     color: '#fff',
     padding: '4px 10px',
     borderRadius: '12px',
     fontSize: '11px',
+    fontFamily: 'var(--font-mono)',
     zIndex: 10,
   },
 } as const;
@@ -147,42 +174,52 @@ export default function ImageModal({ open, src, alt, onClose }: ImageModalProps)
           <button
             style={css.closeBtn}
             onClick={onClose}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.3)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
           >
             &#x2715;
           </button>
 
-          {scale !== 1 && (
-            <div style={css.zoomIndicator}>{Math.round(scale * 100)}%</div>
-          )}
-
           <motion.div
-            style={{
-              ...css.imageContainer,
-              cursor: scale > 1 ? (isDragging.current ? 'grabbing' : 'grab') : 'zoom-out',
-            }}
-            initial={{ scale: 0.8, opacity: 0 }}
+            style={css.splitContainer}
+            initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
+            exit={{ scale: 0.92, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             onClick={(e) => e.stopPropagation()}
-            onWheel={handleWheel}
-            onMouseDown={handleMouseDown}
           >
-            <img
-              src={src}
-              alt={alt || ''}
+            {/* Left: Image */}
+            <div
               style={{
-                ...css.image,
-                transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
-                transition: isDragging.current ? 'none' : 'transform 100ms ease',
+                ...css.imagePane,
+                cursor: scale > 1 ? (isDragging.current ? 'grabbing' : 'grab') : 'default',
               }}
-              draggable={false}
-            />
-          </motion.div>
+              onWheel={handleWheel}
+              onMouseDown={handleMouseDown}
+            >
+              <img
+                src={src}
+                alt={alt || ''}
+                style={{
+                  ...css.image,
+                  transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+                  transition: isDragging.current ? 'none' : 'transform 100ms ease',
+                }}
+                draggable={false}
+              />
+              {scale !== 1 && (
+                <div style={css.zoomIndicator}>{Math.round(scale * 100)}%</div>
+              )}
+            </div>
 
-          {alt && <div style={css.info}>{alt}</div>}
+            {/* Right: Caption */}
+            <div style={css.captionPane}>
+              <div style={css.captionLabel}>キャプション</div>
+              <div style={css.captionText}>
+                {alt || 'キャプションなし'}
+              </div>
+            </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
