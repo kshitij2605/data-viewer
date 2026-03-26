@@ -2,7 +2,16 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChunkStore } from '../stores/chunkStore.ts';
 import { useDocumentStore } from '../stores/documentStore.ts';
+import { setFeedback } from '../api/feedback.ts';
 import type { Chunk } from '../api/chunks.ts';
+
+const FEEDBACK_OPTIONS = [
+  { type: 'correct', emoji: '\u2705', label: '正確' },
+  { type: 'incorrect', emoji: '\u274C', label: '不正確' },
+  { type: 'needs_edit', emoji: '\u270F\uFE0F', label: '要修正' },
+  { type: 'unclear', emoji: '\u2753', label: '不明' },
+  { type: 'warning', emoji: '\u26A0\uFE0F', label: '注意' },
+];
 
 const STRATEGIES = [
   { value: 'character', label: 'Character' },
@@ -134,10 +143,17 @@ const css = {
     display: 'inline-block',
     boxShadow: '0 0 4px var(--color-primary-glow)',
   },
-  feedbackEmoji: {
-    fontSize: '16px',
+  feedbackSelect: {
+    fontSize: '12px',
+    padding: '3px 4px',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    background: 'var(--color-surface)',
     cursor: 'pointer',
-    userSelect: 'none' as const,
+    outline: 'none',
+    color: 'var(--color-text)',
+    fontFamily: 'inherit',
+    maxWidth: '80px',
   },
   commentCell: {
     maxWidth: '120px',
@@ -244,7 +260,6 @@ const css = {
 
 interface ChunkTableProps {
   onChunkSelect?: (chunk: Chunk) => void;
-  onFeedbackClick?: (chunk: Chunk) => void;
 }
 
 function buildPageNumbers(current: number, total: number): (number | '...')[] {
@@ -275,7 +290,7 @@ function SkeletonRows() {
   );
 }
 
-export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTableProps) {
+export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
   const doc = useDocumentStore((s) => s.selectedDocument);
   const {
     chunks, selectedChunk, page, totalPages, isChunking,
@@ -392,8 +407,8 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
               <th style={{ ...css.th, width: '60px' }}>No</th>
               <th style={css.th}>チャンクテキスト</th>
               <th style={{ ...css.th, width: '50px' }}>修正</th>
-              <th style={{ ...css.th, width: '50px' }}>FB</th>
-              <th style={{ ...css.th, width: '120px' }}>FBコメント</th>
+              <th style={{ ...css.th, width: '80px' }}>フィードバック</th>
+              <th style={{ ...css.th, width: '120px' }}>コメント</th>
             </tr>
           </thead>
           <tbody>
@@ -444,15 +459,27 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
                         {chunk.is_modified && <span style={css.modifiedDot} />}
                       </td>
                       <td style={{ ...css.td, textAlign: 'center' }}>
-                        <span
-                          style={css.feedbackEmoji}
-                          onClick={(e) => {
+                        <select
+                          style={css.feedbackSelect}
+                          value={chunk.feedback_emoji || ''}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={async (e) => {
                             e.stopPropagation();
-                            onFeedbackClick?.(chunk);
+                            const val = e.target.value;
+                            if (!val) return;
+                            try {
+                              await setFeedback(chunk.id, val);
+                              if (docId) fetchChunks(docId);
+                            } catch { /* silent */ }
                           }}
                         >
-                          {chunk.feedback_emoji || '\u2014'}
-                        </span>
+                          <option value="">—</option>
+                          {FEEDBACK_OPTIONS.map((opt) => (
+                            <option key={opt.type} value={opt.type}>
+                              {opt.emoji} {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td style={css.td}>
                         <div className="comment-cell" style={css.commentCell}>

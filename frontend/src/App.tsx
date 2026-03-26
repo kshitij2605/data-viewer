@@ -10,14 +10,12 @@ import ChunkTable from './components/ChunkTable.tsx';
 import ViewerEditor from './components/ViewerEditor.tsx';
 import ThumbnailPanel from './components/ThumbnailPanel.tsx';
 import ImageModal from './components/ImageModal.tsx';
-import FeedbackPicker from './components/FeedbackPicker.tsx';
 import DiffView from './components/DiffView.tsx';
 import MarkdownView from './components/MarkdownView.tsx';
 import TextOnlyView from './components/TextOnlyView.tsx';
 import TablesOnlyView from './components/TablesOnlyView.tsx';
 import ImagesOnlyView from './components/ImagesOnlyView.tsx';
 import PdfViewer from './components/PdfViewer.tsx';
-import type { Chunk } from './api/chunks.ts';
 
 const layoutCss = {
   shell: {
@@ -56,12 +54,7 @@ function App() {
 
   // Image modal state
   const [imageModal, setImageModal] = useState({ open: false, src: '', alt: '' });
-  // Feedback picker state
-  const [feedbackPicker, setFeedbackPicker] = useState<{
-    open: boolean;
-    chunkId: number | null;
-    rect: DOMRect | null;
-  }>({ open: false, chunkId: null, rect: null });
+
   // Diff view state
   const [diffView, setDiffView] = useState<{ open: boolean; chunkId: number | null }>({
     open: false,
@@ -78,9 +71,6 @@ function App() {
     setImageModal({ open: true, src, alt });
   }, []);
 
-  const handleFeedbackClick = useCallback((chunk: Chunk) => {
-    setFeedbackPicker({ open: true, chunkId: chunk.id, rect: null });
-  }, []);
 
   const handleHomeClick = useCallback(() => {
     useDocumentStore.getState().setViewMode('chunks');
@@ -156,10 +146,7 @@ function App() {
             style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}
           >
             <ThumbnailPanel onImageClick={handleImageClick} />
-            <ChunkTable
-              onChunkSelect={() => {}}
-              onFeedbackClick={handleFeedbackClick}
-            />
+            <ChunkTable onChunkSelect={() => {}} />
             <ViewerEditor />
           </motion.div>
         );
@@ -194,12 +181,6 @@ function App() {
         src={imageModal.src}
         alt={imageModal.alt}
         onClose={() => setImageModal({ open: false, src: '', alt: '' })}
-      />
-      <FeedbackPicker
-        open={feedbackPicker.open}
-        chunkId={feedbackPicker.chunkId}
-        anchorRect={feedbackPicker.rect}
-        onClose={() => setFeedbackPicker({ open: false, chunkId: null, rect: null })}
       />
       <DiffView
         open={diffView.open}
