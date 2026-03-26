@@ -74,10 +74,12 @@ const css = {
   tableWrap: {
     flex: 1,
     overflowY: 'auto' as const,
+    overflowX: 'auto' as const,
     minHeight: 0,
   },
   table: {
     width: '100%',
+    minWidth: '500px',
     borderCollapse: 'collapse' as const,
     fontSize: '12px',
   },
@@ -301,7 +303,7 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
       {/* Shimmer keyframes */}
       <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
 
-      <div style={css.toolbar}>
+      <div className="chunk-toolbar" style={css.toolbar}>
         <span style={css.toolbarLabel}>チャンク</span>
         <select
           style={css.select}
@@ -320,6 +322,7 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
           {isChunking ? '処理中...' : 'チャンク実行'}
         </button>
         <input
+          className="chunk-search-input"
           style={css.searchInput}
           placeholder="チャンク検索..."
           value={localSearch}
@@ -330,7 +333,7 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
         />
       </div>
 
-      <div style={css.tableWrap}>
+      <div className="chunk-table-wrap" style={css.tableWrap}>
         <table style={css.table}>
           <thead>
             <tr>
@@ -379,7 +382,7 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
                     >
                       <td style={css.td}>{chunk.chunk_index + 1}</td>
                       <td style={css.td}>
-                        <div style={css.chunkText}>{chunk.content}</div>
+                        <div className="chunk-text-cell" style={css.chunkText}>{chunk.content}</div>
                       </td>
                       <td style={{ ...css.td, textAlign: 'center' }}>
                         {chunk.is_modified && <span style={css.modifiedDot} />}
@@ -396,7 +399,7 @@ export default function ChunkTable({ onChunkSelect, onFeedbackClick }: ChunkTabl
                         </span>
                       </td>
                       <td style={css.td}>
-                        <div style={css.commentCell}>
+                        <div className="comment-cell" style={css.commentCell}>
                           {chunk.feedback_comment || '\u2014'}
                         </div>
                       </td>

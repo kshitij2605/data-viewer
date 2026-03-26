@@ -111,7 +111,7 @@ export default function ImagesOnlyView({ onImageClick }: ImagesOnlyViewProps) {
       ) : images.length === 0 ? (
         <div style={css.empty}>画像データがありません。</div>
       ) : (
-        <div style={css.grid}>
+        <div className="images-grid" style={css.grid}>
           <AnimatePresence>
             {images.map((img, idx) => {
               const imgName = img.image_path.replace('images/', '');

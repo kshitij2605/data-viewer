@@ -129,7 +129,12 @@ const css = {
   },
 } as const;
 
-export default function Sidebar() {
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const { documents, selectedDocument, loadDocuments, setDocument, viewMode, setViewMode } =
     useDocumentStore();
   const [search, setSearch] = useState('');
@@ -151,11 +156,9 @@ export default function Sidebar() {
 
   return (
     <>
-      <motion.aside
+      <aside
+        className={`app-sidebar${open ? ' open' : ''}`}
         style={css.sidebar}
-        initial={{ x: -20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.3 }}
       >
         <div style={css.topBar}>
           <input
@@ -203,7 +206,7 @@ export default function Sidebar() {
                       ...css.fileItem,
                       ...(isSelected ? css.fileItemSelected : {}),
                     }}
-                    onClick={() => setDocument(doc)}
+                    onClick={() => { setDocument(doc); onClose?.(); }}
                     onMouseEnter={(e) => {
                       if (!isSelected) {
                         e.currentTarget.style.background = 'var(--color-bg)';
@@ -241,7 +244,7 @@ export default function Sidebar() {
             </button>
           ))}
         </div>
-      </motion.aside>
+      </aside>
 
       <FolderLoadDialog
         open={folderDialogOpen}

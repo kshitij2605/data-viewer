@@ -145,13 +145,14 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
 
   return (
     <motion.div
+      className="thumbnail-panel"
       style={css.container}
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
     >
       {/* Left: Large page thumbnail */}
-      <div style={css.section}>
+      <div className="thumb-section-page" style={css.section}>
         <span style={css.sectionLabel}>ページ</span>
         <AnimatePresence mode="wait">
           {thumbnailUrl ? (
@@ -169,13 +170,13 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
               onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
             />
           ) : (
-            <div style={css.placeholder}>ドキュメントなし</div>
+            <div className="thumb-placeholder" style={css.placeholder}>ドキュメントなし</div>
           )}
         </AnimatePresence>
       </div>
 
       {/* Center: Layout mini-thumbnails */}
-      <div style={css.section}>
+      <div className="thumb-mini-grid" style={css.section}>
         <span style={css.sectionLabel}>レイアウト</span>
         <div style={css.miniGrid}>
           {layoutPages.slice(0, 20).map((p) => {

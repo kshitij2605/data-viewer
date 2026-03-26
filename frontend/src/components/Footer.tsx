@@ -72,11 +72,11 @@ export default function Footer() {
       <div style={css.left}>
         <span style={css.statusDot} />
         {user && (
-          <>
+          <span className="footer-user-details">
             <span>{user.username}</span>
-            <span style={{ color: '#ccc' }}>|</span>
+            <span style={{ color: '#ccc' }}> | </span>
             <span>{user.display_name}</span>
-          </>
+          </span>
         )}
       </div>
       <div style={css.right}>

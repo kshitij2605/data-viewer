@@ -124,9 +124,10 @@ const css = {
 
 interface HeaderProps {
   onHomeClick?: () => void;
+  onMenuClick?: () => void;
 }
 
-export default function Header({ onHomeClick }: HeaderProps) {
+export default function Header({ onHomeClick, onMenuClick }: HeaderProps) {
   const { user, isAuthenticated, logout } = useAuthStore();
   const [dateStr, setDateStr] = useState(() => formatJapaneseDateTime(new Date()));
 
@@ -146,8 +147,11 @@ export default function Header({ onHomeClick }: HeaderProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <div style={css.left}>
-        <span style={css.dateText}>{dateStr}</span>
+      <div className="header-left" style={css.left}>
+        <button className="hamburger-btn" onClick={onMenuClick} title="メニュー">
+          &#9776;
+        </button>
+        <span className="header-date" style={css.dateText}>{dateStr}</span>
         <button
           style={css.homeBtn}
           onClick={onHomeClick}
@@ -159,16 +163,16 @@ export default function Header({ onHomeClick }: HeaderProps) {
         </button>
       </div>
 
-      <div style={css.center}>
+      <div className="header-center" style={css.center}>
         <img src="/logo.png" alt="大塚商会" style={css.logo} />
-        <span style={css.companyName}>大塚商会</span>
+        <span className="header-company-name" style={css.companyName}>大塚商会</span>
       </div>
 
-      <div style={css.right}>
+      <div className="header-right" style={css.right}>
         {isAuthenticated && user ? (
           <>
             <div style={css.userInfo}>
-              <span>{user.display_name || user.username}</span>
+              <span className="user-display-name">{user.display_name || user.username}</span>
             </div>
             <div style={css.avatar}>{initial}</div>
             <button

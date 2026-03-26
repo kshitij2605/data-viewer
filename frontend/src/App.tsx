@@ -48,6 +48,9 @@ function App() {
   const viewMode = useDocumentStore((s) => s.viewMode);
   const selectedDoc = useDocumentStore((s) => s.selectedDocument);
 
+  // Sidebar toggle for mobile
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // Image modal state
   const [imageModal, setImageModal] = useState({ open: false, src: '', alt: '' });
   // Feedback picker state
@@ -163,9 +166,13 @@ function App() {
 
   return (
     <div style={layoutCss.shell}>
-      <Header onHomeClick={handleHomeClick} />
+      <Header onHomeClick={handleHomeClick} onMenuClick={() => setSidebarOpen((v) => !v)} />
       <div style={layoutCss.body}>
-        <Sidebar />
+        <div
+          className={`sidebar-backdrop${sidebarOpen ? ' visible' : ''}`}
+          onClick={() => setSidebarOpen(false)}
+        />
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main style={layoutCss.main}>
           <AnimatePresence mode="wait">
             {renderContent()}

@@ -93,3 +93,153 @@ code,
 pre {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 }
+
+/* ============================================================
+   Responsive Design
+   ============================================================ */
+
+/* Sidebar overlay backdrop (mobile) */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 199;
+}
+
+.sidebar-backdrop.visible {
+  display: block;
+}
+
+/* Hamburger toggle button */
+.hamburger-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--color-text);
+  transition: background 100ms ease;
+}
+
+.hamburger-btn:hover {
+  background: var(--color-bg);
+}
+
+/* Tablet: <= 1024px */
+@media (max-width: 1024px) {
+  .thumbnail-panel {
+    flex-direction: column !important;
+    min-height: auto !important;
+  }
+
+  .thumbnail-panel .thumb-section-page {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .thumbnail-panel .thumb-section-page img {
+    width: 120px !important;
+    height: 84px !important;
+  }
+
+  .thumbnail-panel .thumb-placeholder {
+    width: 120px !important;
+    height: 84px !important;
+  }
+
+  .chunk-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .chunk-search-input {
+    width: 100% !important;
+    margin-left: 0 !important;
+    order: 10;
+  }
+}
+
+/* Mobile: <= 768px */
+@media (max-width: 768px) {
+  .hamburger-btn {
+    display: flex;
+    align-items: center;
+  }
+
+  .app-sidebar {
+    position: fixed !important;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 250ms ease;
+    width: 240px !important;
+    min-width: 240px !important;
+    box-shadow: none;
+  }
+
+  .app-sidebar.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+
+  .header-date {
+    display: none !important;
+  }
+
+  .header-center {
+    position: static !important;
+    transform: none !important;
+  }
+
+  .header-company-name {
+    display: none !important;
+  }
+
+  .header-right .user-display-name {
+    display: none !important;
+  }
+
+  .header-left {
+    min-width: auto !important;
+    gap: 8px !important;
+  }
+
+  .header-right {
+    min-width: auto !important;
+    gap: 8px !important;
+  }
+
+  .chunk-table-wrap {
+    overflow-x: auto;
+  }
+
+  .chunk-text-cell {
+    max-width: 200px !important;
+  }
+
+  .comment-cell {
+    max-width: 80px !important;
+  }
+
+  .thumbnail-panel .thumb-mini-grid {
+    display: none !important;
+  }
+
+  .viewer-editor-textarea {
+    min-height: 80px !important;
+  }
+
+  .footer-user-details {
+    display: none !important;
+  }
+
+  .images-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+  }
+}
