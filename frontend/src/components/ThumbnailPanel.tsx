@@ -23,7 +23,7 @@ const css = {
   container: {
     display: 'flex',
     gap: '14px',
-    padding: '12px 14px',
+    padding: '12px 14px 16px',
     alignItems: 'flex-start',
     overflow: 'hidden',
     flex: 1,
@@ -68,14 +68,14 @@ const css = {
   carouselWrap: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: '6px',
-    flex: 1,
+    gap: '4px',
     minWidth: 0,
   },
   carouselRow: {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
+    width: 'fit-content',
   },
   carouselBtn: {
     width: '24px',
@@ -100,7 +100,6 @@ const css = {
   carouselTrack: {
     display: 'flex',
     gap: '6px',
-    flex: 1,
     overflow: 'hidden',
   },
   miniThumb: {
@@ -117,6 +116,19 @@ const css = {
   miniThumbActive: {
     borderColor: 'var(--color-primary)',
     boxShadow: '0 0 0 2px var(--color-primary-ghost)',
+  },
+  carouselIndicator: {
+    fontSize: '9px',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--color-text-muted)',
+    letterSpacing: '0.5px',
+    paddingLeft: '30px',
+  },
+  divider: {
+    width: '1px',
+    alignSelf: 'stretch',
+    background: 'var(--color-border)',
+    flexShrink: 0,
   },
   // Chunk images section
   rightSection: {
@@ -353,8 +365,16 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
                 &#x25B6;
               </button>
             </div>
+            {layoutPages.length > CAROUSEL_PAGE_SIZE && (
+              <span style={css.carouselIndicator}>
+                {carouselStart + 1}–{Math.min(carouselStart + CAROUSEL_PAGE_SIZE, layoutPages.length)} / {layoutPages.length} ページ
+              </span>
+            )}
           </div>
         )}
+
+        {/* Divider */}
+        <div style={css.divider} />
 
         {/* Right: Chunk image thumbnails */}
         <div style={css.rightSection}>
