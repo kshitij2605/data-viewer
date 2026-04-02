@@ -1,4 +1,5 @@
 """File serving endpoints for documents."""
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -61,6 +62,28 @@ def get_layout_pdf(
     if not pdf_files:
         raise HTTPException(status_code=404, detail="Layout PDF not found")
     return FileResponse(str(pdf_files[0]), media_type="application/pdf")
+
+
+@router.get("/{document_id}/page/{page_num}/markdown")
+def get_page_markdown(
+    document_id: int,
+    page_num: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the markdown content for a specific page (1-indexed)."""
+    doc = _get_doc(document_id, db)
+    work_dir = Path(doc.folder_path)
+    mmd_files = list(work_dir.glob("*_with_captions.mmd"))
+    if not mmd_files:
+        raise HTTPException(status_code=404, detail="Markdown file not found")
+    content = mmd_files[0].read_text(encoding="utf-8")
+    pages = re.split(r"\n---\s*\n?", content)
+    pages = [p.strip() for p in pages if p.strip()]
+    idx = page_num - 1
+    if idx < 0 or idx >= len(pages):
+        raise HTTPException(status_code=404, detail="Page not found")
+    return {"content": pages[idx]}
 
 
 @router.get("/{document_id}/page/{page_num}/thumbnail")

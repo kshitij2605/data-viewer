@@ -7,11 +7,11 @@ export interface Feedback {
 
 export async function setFeedback(
   chunkId: number,
-  emojiType: string,
+  emojiType: string | null | undefined,
   comment?: string,
 ): Promise<void> {
   await client.put(`/chunks/${chunkId}/feedback`, {
-    emoji_type: emojiType,
+    emoji_type: emojiType || null,
     comment: comment ?? '',
   });
 }

@@ -61,9 +61,12 @@ def load_document(
     with open(metadata_path, "r", encoding="utf-8") as f:
         metadata = json.load(f)
 
+    if "num_pages" not in metadata:
+        raise HTTPException(status_code=400, detail="Invalid metadata.json format: missing required field 'num_pages'")
+
     pdf_title = metadata.get("pdf_title", "")
     num_pages = metadata.get("num_pages", 0)
-    num_images_data = metadata.get("num_images", {})
+    num_images_data = metadata.get("num_images", 0)
     num_images = num_images_data.get("total", 0) if isinstance(num_images_data, dict) else int(num_images_data)
     num_tables = metadata.get("num_tables", 0)
 
@@ -89,6 +92,19 @@ def load_document(
             pass  # thumbnails are optional
 
     return doc
+
+
+@router.delete("/{document_id}", status_code=204)
+def delete_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    db.delete(doc)
+    db.commit()
 
 
 @router.get("", response_model=list[DocumentOut])

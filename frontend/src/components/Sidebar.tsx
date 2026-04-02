@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import FolderLoadDialog from './FolderLoadDialog.tsx';
@@ -6,11 +6,11 @@ import FolderLoadDialog from './FolderLoadDialog.tsx';
 type ViewMode = 'chunks' | 'markdown' | 'text' | 'tables' | 'images';
 
 const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: string }[] = [
-  { mode: 'chunks', label: 'チャンク', icon: '&#x2630;' },
+  { mode: 'chunks', label: 'チャンク', icon: '&#x29C9;' },
   { mode: 'markdown', label: 'Markdown', icon: '&#x23CE;' },
   { mode: 'text', label: 'テキスト', icon: '&#x1D5AB;' },
   { mode: 'tables', label: 'テーブル', icon: '&#x25A6;' },
-  { mode: 'images', label: '画像', icon: '&#x1F5BC;' },
+  { mode: 'images', label: '画像', icon: '&#x1F5FB;' },
 ];
 
 const css = {
@@ -20,10 +20,10 @@ const css = {
     flexDirection: 'column' as const,
     height: '100%',
     overflow: 'hidden',
-    transition: 'width 200ms ease, min-width 200ms ease',
+    transition: 'width 250ms cubic-bezier(0.4, 0, 0.2, 1), min-width 250ms cubic-bezier(0.4, 0, 0.2, 1)',
   },
   topBar: {
-    padding: '10px 10px',
+    padding: '12px 10px',
     borderBottom: '1px solid var(--color-sidebar-border)',
     display: 'flex',
     gap: '6px',
@@ -31,25 +31,25 @@ const css = {
   },
   searchInput: {
     flex: 1,
-    padding: '7px 10px',
+    padding: '8px 12px',
     border: '1px solid var(--color-sidebar-border)',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
     outline: 'none',
     fontFamily: 'inherit',
     background: 'var(--color-sidebar-surface)',
     color: 'var(--color-sidebar-text)',
-    transition: 'border-color var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     minWidth: 0,
   },
   iconBtn: {
-    padding: '5px 8px',
+    padding: '6px 8px',
     background: 'var(--color-sidebar-surface)',
     border: '1px solid var(--color-sidebar-border)',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '14px',
+    fontSize: '13px',
     cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     flexShrink: 0,
     display: 'flex',
     alignItems: 'center',
@@ -63,7 +63,7 @@ const css = {
     fontSize: '14px',
     cursor: 'pointer',
     color: 'var(--color-sidebar-text)',
-    transition: 'color var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -72,22 +72,23 @@ const css = {
   fileList: {
     flex: 1,
     overflowY: 'auto' as const,
-    padding: '6px 0',
+    padding: '4px 0',
   },
   fileItem: {
-    padding: '9px 14px',
-    fontSize: '12px',
+    padding: '10px 14px',
+    fontSize: 'var(--text-sm)',
     cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    borderLeft: '3px solid transparent',
+    borderLeft: '2.5px solid transparent',
     color: 'var(--color-sidebar-text)',
     overflow: 'hidden',
+    letterSpacing: '0.02em',
   },
   fileItemSelected: {
-    background: 'var(--color-sidebar-surface)',
+    background: 'rgba(230, 57, 70, 0.08)',
     borderLeftColor: 'var(--color-primary)',
     color: 'var(--color-sidebar-text-active)',
     fontWeight: 600,
@@ -97,58 +98,63 @@ const css = {
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
     flex: 1,
-    lineHeight: 1.4,
+    lineHeight: 1.5,
   },
   pageCount: {
-    fontSize: '10px',
-    color: 'var(--color-text-muted)',
+    fontSize: 'var(--text-xxs)',
+    color: 'var(--color-sidebar-text)',
     flexShrink: 0,
     fontFamily: 'var(--font-mono)',
     background: 'var(--color-sidebar-surface)',
-    padding: '1px 5px',
-    borderRadius: '8px',
+    padding: '2px 7px',
+    borderRadius: 'var(--radius-full)',
+    opacity: 0.6,
   },
   viewSwitcher: {
     borderTop: '1px solid var(--color-sidebar-border)',
-    padding: '8px 8px',
+    padding: '10px 8px',
     display: 'flex',
     flexDirection: 'column' as const,
     gap: '2px',
   },
   viewLabel: {
-    fontSize: '9px',
+    fontSize: 'var(--text-xxs)',
     fontWeight: 600,
-    color: 'var(--color-text-muted)',
-    padding: '2px 6px 4px',
+    color: 'var(--color-sidebar-text)',
+    padding: '2px 6px 6px',
     textTransform: 'uppercase' as const,
-    letterSpacing: '1.5px',
+    letterSpacing: '2px',
     fontFamily: 'var(--font-display)',
+    opacity: 0.4,
   },
   viewBtn: {
-    padding: '6px 10px',
-    fontSize: '12px',
+    padding: '7px 10px',
+    fontSize: 'var(--text-sm)',
     border: 'none',
     borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
     textAlign: 'left' as const,
     fontFamily: 'inherit',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     background: 'transparent',
     color: 'var(--color-sidebar-text)',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '10px',
+    letterSpacing: '0.02em',
   },
   viewBtnActive: {
-    background: 'var(--color-primary)',
+    background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
     color: '#fff',
     fontWeight: 600,
+    boxShadow: '0 2px 8px rgba(230, 57, 70, 0.25)',
   },
   emptyState: {
-    padding: '28px 14px',
+    padding: '32px 14px',
     textAlign: 'center' as const,
-    fontSize: '12px',
-    color: 'var(--color-text-muted)',
+    fontSize: 'var(--text-sm)',
+    color: 'var(--color-sidebar-text)',
+    opacity: 0.5,
   },
 } as const;
 
@@ -157,13 +163,16 @@ interface SidebarProps {
   onClose?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  width?: number;
+  onWidthChange?: (w: number) => void;
 }
 
-export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: SidebarProps) {
-  const { documents, selectedDocument, loadDocuments, setDocument, viewMode, setViewMode } =
+export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, width, onWidthChange }: SidebarProps) {
+  const { documents, selectedDocument, loadDocuments, deleteDocument, setDocument, viewMode, setViewMode } =
     useDocumentStore();
   const [search, setSearch] = useState('');
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
 
   useEffect(() => {
     loadDocuments();
@@ -179,13 +188,38 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
     );
   }, [documents, search]);
 
-  const sidebarWidth = collapsed ? '48px' : '200px';
+  const sidebarWidth = collapsed ? '48px' : `${width ?? 200}px`;
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    const startX = e.clientX;
+    const startWidth = width ?? 200;
+
+    const onMove = (ev: MouseEvent) => {
+      const newWidth = Math.max(140, Math.min(500, startWidth + (ev.clientX - startX)));
+      onWidthChange?.(newWidth);
+    };
+
+    const onUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
+  }, [width, onWidthChange]);
 
   return (
     <>
       <aside
         className={`app-sidebar${open ? ' open' : ''}`}
-        style={{ ...css.sidebar, width: sidebarWidth, minWidth: sidebarWidth }}
+        style={{ ...css.sidebar, width: sidebarWidth, minWidth: sidebarWidth, position: 'relative', transition: isResizing ? 'none' : css.sidebar.transition }}
       >
         {/* Collapse toggle (visible on desktop only) */}
         <div style={{ ...css.topBar, justifyContent: collapsed ? 'center' : 'flex-start' }}>
@@ -228,8 +262,16 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
           </button>
         </div>
 
-        {!collapsed && (
-          <>
+        {/* Expanded content — fades out when collapsing */}
+        <div style={{
+          flex: collapsed ? 0 : 1,
+          display: 'flex',
+          flexDirection: 'column' as const,
+          overflow: 'hidden',
+          opacity: collapsed ? 0 : 1,
+          pointerEvents: collapsed ? 'none' as const : 'auto' as const,
+          transition: 'opacity 200ms ease, flex 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+        }}>
             <div style={css.fileList}>
               <AnimatePresence>
                 {filtered.length === 0 ? (
@@ -266,6 +308,31 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
                           {doc.pdf_title || doc.folder_name}
                         </span>
                         <span style={css.pageCount}>{doc.num_pages}p</span>
+                        <button
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--color-sidebar-text)',
+                            cursor: 'pointer',
+                            padding: '0 4px',
+                            fontSize: '12px',
+                            opacity: 0.4,
+                            flexShrink: 0,
+                            lineHeight: 1,
+                            transition: 'all var(--transition-fast)',
+                          }}
+                          title="削除"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`「${doc.pdf_title || doc.folder_name}」を削除しますか？`)) {
+                              deleteDocument(doc.id);
+                            }
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--color-error)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.color = 'var(--color-sidebar-text)'; }}
+                        >
+                          &#x2715;
+                        </button>
                       </motion.div>
                     );
                   })
@@ -289,29 +356,56 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: 
                 </button>
               ))}
             </div>
-          </>
-        )}
+        </div>
 
-        {/* Collapsed: show view mode icons only */}
-        {collapsed && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 0', gap: '4px' }}>
-            {VIEW_OPTIONS.map((opt) => (
-              <button
-                key={opt.mode}
-                style={{
-                  ...css.viewBtn,
-                  justifyContent: 'center',
-                  padding: '8px',
-                  width: '36px',
-                  ...(viewMode === opt.mode ? css.viewBtnActive : {}),
-                }}
-                onClick={() => setViewMode(opt.mode)}
-                title={opt.label}
-              >
-                <span dangerouslySetInnerHTML={{ __html: opt.icon }} style={{ fontSize: '14px' }} />
-              </button>
-            ))}
-          </div>
+        {/* Collapsed: view mode icons — fades in when collapsing */}
+        <div style={{
+          flex: collapsed ? 1 : 0,
+          display: 'flex',
+          flexDirection: 'column' as const,
+          alignItems: 'center',
+          padding: collapsed ? '8px 0' : '0',
+          gap: '4px',
+          overflow: 'hidden',
+          opacity: collapsed ? 1 : 0,
+          pointerEvents: collapsed ? 'auto' as const : 'none' as const,
+          transition: 'opacity 200ms ease 80ms, flex 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+        }}>
+          {VIEW_OPTIONS.map((opt) => (
+            <button
+              key={opt.mode}
+              style={{
+                ...css.viewBtn,
+                justifyContent: 'center',
+                padding: '8px',
+                width: '36px',
+                ...(viewMode === opt.mode ? css.viewBtnActive : {}),
+              }}
+              onClick={() => setViewMode(opt.mode)}
+              title={opt.label}
+            >
+              <span dangerouslySetInnerHTML={{ __html: opt.icon }} style={{ fontSize: '14px' }} />
+            </button>
+          ))}
+        </div>
+        {/* Drag resize handle on right edge */}
+        {!collapsed && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: '4px',
+              cursor: 'ew-resize',
+              background: isResizing ? 'var(--color-primary)' : 'transparent',
+              transition: 'background var(--transition-fast)',
+              zIndex: 10,
+            }}
+            onMouseDown={handleResizeStart}
+            onMouseEnter={(e) => { if (!isResizing) e.currentTarget.style.background = 'var(--color-border)'; }}
+            onMouseLeave={(e) => { if (!isResizing) e.currentTarget.style.background = 'transparent'; }}
+          />
         )}
       </aside>
 

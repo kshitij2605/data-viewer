@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import { useChunkStore } from '../stores/chunkStore.ts';
 import { withToken } from '../api/client.ts';
+import { getPageMarkdown } from '../api/documents.ts';
 
 const MIN_HEIGHT = 80;
 const MAX_HEIGHT = 500;
@@ -16,15 +17,15 @@ const css = {
     flexShrink: 0,
     overflow: 'hidden',
     borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
+    border: '1px solid var(--color-border-light)',
     background: 'var(--color-surface)',
-    boxShadow: 'var(--shadow-xs)',
+    boxShadow: 'var(--shadow-sm)',
   },
   container: {
     display: 'flex',
-    gap: '14px',
-    padding: '12px 14px 16px',
-    alignItems: 'flex-start',
+    gap: '16px',
+    padding: '14px 16px 14px',
+    alignItems: 'stretch',
     overflow: 'hidden',
     flex: 1,
     minHeight: 0,
@@ -32,37 +33,37 @@ const css = {
   section: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: '6px',
+    gap: '8px',
+    minHeight: 0,
   },
   sectionLabel: {
-    fontSize: '9px',
+    fontSize: 'var(--text-xxs)',
     fontWeight: 600,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text-muted)',
     textTransform: 'uppercase' as const,
-    letterSpacing: '1.5px',
+    letterSpacing: '1.8px',
   },
   pageThumbnail: {
-    width: '200px',
-    height: '140px',
     borderRadius: 'var(--radius-sm)',
     border: '1px solid var(--color-border)',
     objectFit: 'contain' as const,
     background: 'var(--color-surface-raised)',
     cursor: 'pointer',
-    transition: 'box-shadow var(--transition-fast)',
+    transition: 'box-shadow var(--transition-normal)',
+    minHeight: 0,
   },
   placeholder: {
-    width: '200px',
-    height: '140px',
     borderRadius: 'var(--radius-sm)',
     border: '1.5px dashed var(--color-border)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'var(--color-text-muted)',
-    fontSize: '12px',
+    color: 'var(--color-text-faint)',
+    fontSize: 'var(--text-sm)',
     background: 'var(--color-surface-inset)',
+    flex: 1,
+    minHeight: 0,
   },
   // Carousel styles
   carouselWrap: {
@@ -87,9 +88,9 @@ const css = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
     color: 'var(--color-text-muted)',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     flexShrink: 0,
     padding: 0,
   },
@@ -97,30 +98,32 @@ const css = {
     opacity: 0.3,
     cursor: 'default',
   },
+  carouselViewport: {
+    overflow: 'hidden',
+  },
   carouselTrack: {
     display: 'flex',
     gap: '6px',
-    overflow: 'hidden',
   },
   miniThumb: {
     width: '80px',
     height: '60px',
-    borderRadius: '3px',
+    borderRadius: 'var(--radius-xs)',
     border: '1.5px solid var(--color-border)',
     objectFit: 'contain' as const,
     background: 'var(--color-surface-raised)',
     cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     flexShrink: 0,
   },
   miniThumbActive: {
     borderColor: 'var(--color-primary)',
-    boxShadow: '0 0 0 2px var(--color-primary-ghost)',
+    boxShadow: '0 0 0 2px var(--color-primary-ghost), 0 2px 8px rgba(230, 57, 70, 0.1)',
   },
   carouselIndicator: {
-    fontSize: '9px',
+    fontSize: 'var(--text-xxs)',
     fontFamily: 'var(--font-mono)',
-    color: 'var(--color-text-muted)',
+    color: 'var(--color-text-faint)',
     letterSpacing: '0.5px',
     paddingLeft: '30px',
   },
@@ -140,7 +143,7 @@ const css = {
   },
   chunkGrid: {
     display: 'flex',
-    gap: '6px',
+    gap: '8px',
     flexWrap: 'wrap' as const,
     maxHeight: '140px',
     overflowY: 'auto' as const,
@@ -149,35 +152,35 @@ const css = {
   chunkThumb: {
     width: '90px',
     height: '70px',
-    borderRadius: '3px',
+    borderRadius: 'var(--radius-xs)',
     border: '1px solid var(--color-border)',
     objectFit: 'contain' as const,
     background: 'var(--color-surface-raised)',
     cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
   },
   searchInput: {
-    padding: '4px 8px',
+    padding: '5px 10px',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '11px',
+    fontSize: 'var(--text-xs)',
     fontFamily: 'inherit',
     outline: 'none',
     width: '120px',
-    transition: 'border-color var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     background: 'var(--color-surface-raised)',
     color: 'var(--color-text)',
   },
   pageIndicator: {
-    fontSize: '10px',
+    fontSize: 'var(--text-xs)',
     fontFamily: 'var(--font-mono)',
-    color: 'var(--color-text-muted)',
+    color: 'var(--color-text-faint)',
     textAlign: 'center' as const,
   },
 } as const;
 
 interface ThumbnailPanelProps {
-  onImageClick?: (src: string, alt: string) => void;
+  onImageClick?: (src: string, alt: string, pageMarkdown?: string, pageNum?: number, numPages?: number) => void;
 }
 
 export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
@@ -191,18 +194,35 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(0);
 
-  const pageNum = selectedChunk?.page_number ?? currentPage;
+  // When user manually picks a page from carousel, that takes priority
+  const [manualPage, setManualPage] = useState<number | null>(null);
+  const pageNum = manualPage ?? selectedChunk?.page_number ?? currentPage;
+
+  // Reset manual page when a new chunk is selected
+  useEffect(() => {
+    if (selectedChunk) setManualPage(null);
+  }, [selectedChunk?.id]);
   const numPages = doc?.num_pages ?? 0;
 
+  // Detect orientation from first page thumbnail
+  const [isPortrait, setIsPortrait] = useState(false);
+  useEffect(() => {
+    if (!doc || numPages === 0) return;
+    const img = new Image();
+    img.src = withToken(`/api/documents/${doc.id}/page/1/thumbnail`);
+    img.onload = () => {
+      setIsPortrait(img.naturalHeight > img.naturalWidth);
+    };
+  }, [doc?.id, numPages]);
+
   // Scale factor: thumbnails grow proportionally with panel height
-  // At DEFAULT_HEIGHT (180), scale=1. At MAX_HEIGHT (500), scale ~2.5
-  const contentHeight = panelHeight - 32; // subtract padding + resize handle
+  const contentHeight = panelHeight - 32;
   const scaleFactor = Math.max(0.6, contentHeight / (DEFAULT_HEIGHT - 32));
-  const mainThumbW = Math.round(200 * scaleFactor);
-  const mainThumbH = Math.round(140 * scaleFactor);
-  const miniW = Math.round(80 * scaleFactor);
-  const miniH = Math.round(60 * scaleFactor);
-  const carouselBtnH = Math.round(60 * scaleFactor);
+  const mainThumbW = Math.round((isPortrait ? 110 : 200) * scaleFactor);
+  const mainThumbH = Math.round((isPortrait ? 160 : 140) * scaleFactor);
+  const miniW = Math.round((isPortrait ? 50 : 80) * scaleFactor);
+  const miniH = Math.round((isPortrait ? 70 : 60) * scaleFactor);
+  const carouselBtnH = Math.round((isPortrait ? 70 : 60) * scaleFactor);
 
   const thumbnailUrl = doc
     ? withToken(`/api/documents/${doc.id}/page/${pageNum}/thumbnail`)
@@ -220,13 +240,37 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
     );
   }, [selectedChunk, doc, chunkSearch]);
 
+  // Extract caption for a given image ref from chunk markdown content
+  const getCaptionForImage = useCallback((ref: string): string => {
+    if (!selectedChunk) return '';
+    const lines = selectedChunk.content.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(`images/${ref}`) || lines[i].includes(`(${ref})`)) {
+        // Look ahead for italic caption (skip blank lines)
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim() === '') j++;
+        if (j < lines.length) {
+          const m = lines[j].trim().match(/^\*([^*]+)\*$/);
+          if (m) return m[1];
+        }
+      }
+    }
+    return '';
+  }, [selectedChunk]);
+
   // Carousel navigation
   const canPrev = carouselStart > 0;
   const canNext = carouselStart + CAROUSEL_PAGE_SIZE < layoutPages.length;
-  const visiblePages = layoutPages.slice(carouselStart, carouselStart + CAROUSEL_PAGE_SIZE);
+  const carouselItemStride = miniW + 6; // width + gap
+  const viewportWidth = CAROUSEL_PAGE_SIZE * miniW + (CAROUSEL_PAGE_SIZE - 1) * 6;
 
-  // Auto-scroll carousel to keep active page visible
+  // Auto-scroll carousel to keep active page visible (only when not manually navigating)
+  const manualCarousel = useRef(false);
   useEffect(() => {
+    if (manualCarousel.current) {
+      manualCarousel.current = false;
+      return;
+    }
     const activeIdx = layoutPages.indexOf(pageNum);
     if (activeIdx >= 0) {
       if (activeIdx < carouselStart) {
@@ -281,25 +325,31 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
     >
       <div style={css.container}>
         {/* Left: Large page thumbnail */}
-        <div className="thumb-section-page" style={css.section}>
-          <span style={css.sectionLabel}>ページ {numPages > 0 ? `${pageNum}/${numPages}` : ''}</span>
+        <div className="thumb-section-page" style={{ ...css.section, flexShrink: 0, alignItems: 'center' }}>
+          <span style={{ ...css.sectionLabel, alignSelf: 'stretch' }}>ページ {numPages > 0 ? `${pageNum}/${numPages}` : ''}</span>
           <AnimatePresence mode="wait">
             {thumbnailUrl ? (
               <motion.img
                 key={`page-${pageNum}`}
                 src={thumbnailUrl}
                 alt={`Page ${pageNum}`}
-                style={{ ...css.pageThumbnail, width: mainThumbW, height: mainThumbH }}
+                style={{ ...css.pageThumbnail, width: 'auto', maxHeight: '100%' }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                onClick={() => onImageClick?.(thumbnailUrl, `Page ${pageNum}`)}
+                onClick={async () => {
+                  let md: string | undefined;
+                  if (doc) {
+                    try { md = await getPageMarkdown(doc.id, pageNum); } catch { /* ignore */ }
+                  }
+                  onImageClick?.(thumbnailUrl, `Page ${pageNum}`, md, pageNum, numPages);
+                }}
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
               />
             ) : (
-              <div className="thumb-placeholder" style={{ ...css.placeholder, width: mainThumbW, height: mainThumbH }}>ドキュメントなし</div>
+              <div className="thumb-placeholder" style={css.placeholder}>ドキュメントなし</div>
             )}
           </AnimatePresence>
         </div>
@@ -314,19 +364,23 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
                   height: carouselBtnH,
                   ...(canPrev ? {} : css.carouselBtnDisabled),
                 }}
-                onClick={() => canPrev && setCarouselStart(Math.max(0, carouselStart - CAROUSEL_PAGE_SIZE))}
+                onClick={() => { if (canPrev) { manualCarousel.current = true; setCarouselStart(Math.max(0, carouselStart - 1)); } }}
                 disabled={!canPrev}
                 title="前へ"
               >
                 &#x25C0;
               </button>
-              <div style={css.carouselTrack}>
-                <AnimatePresence mode="popLayout">
-                  {visiblePages.map((p) => {
+              <div style={{ ...css.carouselViewport, width: viewportWidth }}>
+                <motion.div
+                  style={css.carouselTrack}
+                  animate={{ x: -(carouselStart * carouselItemStride) }}
+                  transition={{ type: 'tween', duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
+                >
+                  {layoutPages.map((p) => {
                     const isActive = p === pageNum;
                     const src = doc ? withToken(`/api/documents/${doc.id}/page/${p}/thumbnail`) : '';
                     return (
-                      <motion.img
+                      <img
                         key={p}
                         src={src}
                         alt={`Page ${p}`}
@@ -336,11 +390,7 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
                           height: miniH,
                           ...(isActive ? css.miniThumbActive : {}),
                         }}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.15 }}
-                        onClick={() => setCurrentPage(p)}
+                        onClick={() => { setManualPage(p); setCurrentPage(p); }}
                         onMouseEnter={(e) => {
                           if (!isActive) e.currentTarget.style.borderColor = 'var(--color-text-muted)';
                         }}
@@ -350,7 +400,7 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
                       />
                     );
                   })}
-                </AnimatePresence>
+                </motion.div>
               </div>
               <button
                 style={{
@@ -358,7 +408,7 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
                   height: carouselBtnH,
                   ...(canNext ? {} : css.carouselBtnDisabled),
                 }}
-                onClick={() => canNext && setCarouselStart(carouselStart + CAROUSEL_PAGE_SIZE)}
+                onClick={() => { if (canNext) { manualCarousel.current = true; setCarouselStart(carouselStart + 1); } }}
                 disabled={!canNext}
                 title="次へ"
               >
@@ -391,20 +441,23 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
           </div>
           <div style={css.chunkGrid}>
             {chunkImages.length === 0 ? (
-              <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', padding: '8px' }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', padding: '8px' }}>
                 画像なし
               </div>
             ) : (
               chunkImages.map((ref) => {
                 const imgSrc = doc ? withToken(`/api/documents/${doc.id}/images/${ref}`) : '';
+                const caption = getCaptionForImage(ref);
+                const altText = caption ? `${ref}\n${caption}` : ref;
                 return (
                   <motion.img
                     key={ref}
                     src={imgSrc}
                     alt={ref}
+                    title={caption || ref}
                     style={css.chunkThumb}
                     whileHover={{ scale: 1.04, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                    onClick={() => onImageClick?.(imgSrc, ref)}
+                    onClick={() => onImageClick?.(imgSrc, altText)}
                   />
                 );
               })

@@ -1,86 +1,96 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChunkStore } from '../stores/chunkStore.ts';
+import { useDocumentStore } from '../stores/documentStore.ts';
 import { editChunk } from '../api/chunks.ts';
+import { setFeedback } from '../api/feedback.ts';
 
 const css = {
   container: {
     background: 'var(--color-surface)',
     borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
+    border: '1px solid var(--color-border-light)',
     overflow: 'hidden',
-    flexShrink: 0,
-    boxShadow: 'var(--shadow-xs)',
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    minHeight: 0,
+    boxShadow: 'var(--shadow-sm)',
   },
   header: {
-    padding: '9px 14px',
+    padding: '10px 16px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    background: 'var(--color-surface-raised)',
-    borderBottom: '1px solid var(--color-border)',
+    background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
+    borderBottom: '1px solid var(--color-border-light)',
     cursor: 'pointer',
     userSelect: 'none' as const,
-    transition: 'background var(--transition-fast)',
+    transition: 'background var(--transition-normal)',
   },
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    fontSize: '13px',
-    fontWeight: 600,
+    gap: '10px',
+    fontSize: 'var(--text-base)',
+    fontWeight: 700,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text)',
+    letterSpacing: '0.3px',
   },
   chevron: {
-    fontSize: '11px',
+    fontSize: 'var(--text-xs)',
     color: 'var(--color-text-muted)',
-    transition: 'transform 200ms ease',
+    transition: 'transform var(--transition-smooth)',
   },
   body: {
-    overflow: 'hidden',
+    overflow: 'auto',
+    flex: 1,
+    minHeight: 0,
   },
   inner: {
-    padding: '14px',
+    padding: '16px',
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: '12px',
+    gap: '14px',
   },
   modeSwitch: {
     display: 'flex',
     gap: '6px',
   },
   modeBtn: {
-    padding: '5px 14px',
+    padding: '6px 16px',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-sm)',
     background: 'var(--color-surface)',
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
     cursor: 'pointer',
     fontFamily: 'var(--font-display)',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     color: 'var(--color-text-secondary)',
+    letterSpacing: '0.2px',
   },
   modeBtnActive: {
-    background: 'var(--color-primary)',
+    background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
     color: '#fff',
     borderColor: 'var(--color-primary)',
     fontWeight: 600,
+    boxShadow: '0 2px 6px rgba(230, 57, 70, 0.2)',
   },
   textarea: {
     width: '100%',
     minHeight: '100px',
-    padding: '12px 14px',
+    padding: '14px 16px',
     border: '1.5px solid var(--color-border)',
     borderRadius: 'var(--radius-md)',
-    fontSize: '13px',
+    fontSize: 'var(--text-base)',
     fontFamily: 'inherit',
     lineHeight: 1.7,
     resize: 'none' as const,
     outline: 'none',
     background: 'var(--color-surface-raised)',
     color: 'var(--color-text)',
-    transition: 'border-color var(--transition-normal)',
+    transition: 'border-color var(--transition-normal), box-shadow var(--transition-normal)',
     overflow: 'hidden',
   },
   actions: {
@@ -89,51 +99,55 @@ const css = {
     justifyContent: 'flex-end',
   },
   saveBtn: {
-    padding: '7px 20px',
-    background: 'var(--color-primary)',
+    padding: '7px 22px',
+    background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
     color: '#fff',
     border: 'none',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
     fontWeight: 600,
     fontFamily: 'var(--font-display)',
     cursor: 'pointer',
-    transition: 'background var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     letterSpacing: '0.3px',
+    boxShadow: '0 2px 6px rgba(230, 57, 70, 0.2)',
   },
   chunkLabel: {
-    fontSize: '11px',
-    color: 'var(--color-text-muted)',
+    fontSize: 'var(--text-xs)',
+    color: 'var(--color-text-faint)',
     fontWeight: 500,
     fontFamily: 'var(--font-mono)',
   },
   emptyState: {
-    padding: '24px',
+    padding: '28px',
     textAlign: 'center' as const,
-    color: 'var(--color-text-muted)',
-    fontSize: '12px',
+    color: 'var(--color-text-faint)',
+    fontSize: 'var(--text-sm)',
+    letterSpacing: '0.02em',
   },
   statusMsg: {
-    fontSize: '11px',
-    padding: '4px 10px',
-    borderRadius: 'var(--radius-sm)',
+    fontSize: 'var(--text-xs)',
+    padding: '4px 12px',
+    borderRadius: 'var(--radius-full)',
     fontWeight: 500,
     fontFamily: 'var(--font-display)',
   },
 } as const;
 
-export default function ViewerEditor() {
+interface ViewerEditorProps {
+  isOpen?: boolean;
+  onToggle?: () => void;
+}
+
+export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorProps) {
   const { selectedChunk, fetchChunks } = useChunkStore();
-  const docId = selectedChunk ? undefined : undefined;
-  const [isOpen, setIsOpen] = useState(true);
+  const doc = useDocumentStore((s) => s.selectedDocument);
   const [mode, setMode] = useState<'content' | 'comment'>('content');
   const [editText, setEditText] = useState('');
   const [commentText, setCommentText] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const _docIdRef = useRef<number | undefined>(docId);
 
   useEffect(() => {
     if (selectedChunk) {
@@ -160,13 +174,15 @@ export default function ViewerEditor() {
     setSaving(true);
     setStatus('idle');
     try {
-      await editChunk(selectedChunk.id, editText);
-      setStatus('saved');
-      const store = useChunkStore.getState();
-      if (store.chunks.length > 0) {
-        void fetchChunks;
+      if (mode === 'content') {
+        await editChunk(selectedChunk.id, editText);
+      } else {
+        await setFeedback(selectedChunk.id, selectedChunk.feedback_emoji || '', commentText);
       }
-      _docIdRef.current = undefined;
+      setStatus('saved');
+      if (doc) {
+        await fetchChunks(doc.id);
+      }
     } catch {
       setStatus('error');
     } finally {
@@ -178,7 +194,7 @@ export default function ViewerEditor() {
     <div style={css.container}>
       <div
         style={css.header}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => onToggle?.()}
         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-surface-raised)'; }}
       >
@@ -218,16 +234,8 @@ export default function ViewerEditor() {
         )}
       </div>
 
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            key="editor-body"
-            style={css.body}
-            initial={{ height: 0 }}
-            animate={{ height: 'auto' }}
-            exit={{ height: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          >
+      {isOpen && (
+          <div style={css.body}>
             {!selectedChunk ? (
               <div style={css.emptyState}>
                 チャンクを選択するとここに内容が表示されます。
@@ -307,9 +315,8 @@ export default function ViewerEditor() {
                 </div>
               </div>
             )}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   );
 }

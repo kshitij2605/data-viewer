@@ -1,16 +1,17 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChunkStore } from '../stores/chunkStore.ts';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import { setFeedback } from '../api/feedback.ts';
-import type { Chunk } from '../api/chunks.ts';
+import { deleteEdit, subscribeEvaluation } from '../api/chunks.ts';
+import type { Chunk, EvalResult } from '../api/chunks.ts';
 
 const FEEDBACK_OPTIONS = [
   { type: 'correct', emoji: '\u2705', label: '正確' },
   { type: 'incorrect', emoji: '\u274C', label: '不正確' },
   { type: 'needs_edit', emoji: '\u270F\uFE0F', label: '要修正' },
   { type: 'unclear', emoji: '\u2753', label: '不明' },
-  { type: 'warning', emoji: '\u26A0\uFE0F', label: '注意' },
+  { type: 'partial', emoji: '\u26A0\uFE0F', label: '部分的' },
 ];
 
 const STRATEGIES = [
@@ -28,61 +29,64 @@ const css = {
     flexDirection: 'column' as const,
     background: 'var(--color-surface)',
     borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
+    border: '1px solid var(--color-border-light)',
     overflow: 'hidden',
     minHeight: 0,
-    boxShadow: 'var(--shadow-xs)',
+    boxShadow: 'var(--shadow-sm)',
   },
   toolbar: {
-    padding: '9px 14px',
+    padding: '10px 16px',
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    borderBottom: '1px solid var(--color-border)',
-    background: 'var(--color-surface-raised)',
+    borderBottom: '1px solid var(--color-border-light)',
+    background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%)',
     flexShrink: 0,
   },
   toolbarLabel: {
-    fontSize: '13px',
-    fontWeight: 600,
+    fontSize: 'var(--text-base)',
+    fontWeight: 700,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text)',
     whiteSpace: 'nowrap' as const,
+    letterSpacing: '0.5px',
   },
   select: {
-    padding: '5px 10px',
+    padding: '6px 10px',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
     fontFamily: 'inherit',
     background: 'var(--color-surface)',
     cursor: 'pointer',
     outline: 'none',
     color: 'var(--color-text)',
+    transition: 'border-color var(--transition-fast)',
   },
   chunkBtn: {
-    padding: '6px 14px',
-    background: 'var(--color-primary)',
+    padding: '6px 16px',
+    background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
     color: '#fff',
     border: 'none',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
     fontWeight: 600,
     fontFamily: 'var(--font-display)',
     cursor: 'pointer',
-    transition: 'background var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     letterSpacing: '0.3px',
+    boxShadow: '0 2px 6px rgba(230, 57, 70, 0.2)',
   },
   searchInput: {
     marginLeft: 'auto',
-    padding: '5px 10px',
+    padding: '6px 12px',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
     fontFamily: 'inherit',
     outline: 'none',
     width: '160px',
-    transition: 'border-color var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     background: 'var(--color-surface)',
     color: 'var(--color-text)',
   },
@@ -96,44 +100,47 @@ const css = {
     width: '100%',
     minWidth: '500px',
     borderCollapse: 'collapse' as const,
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
   },
   th: {
     position: 'sticky' as const,
     top: 0,
     background: 'var(--color-surface-raised)',
-    borderBottom: '2px solid var(--color-border)',
-    padding: '9px 12px',
+    borderBottom: '1.5px solid var(--color-border)',
+    padding: '10px 14px',
     textAlign: 'left' as const,
     fontWeight: 600,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text-muted)',
-    fontSize: '10px',
-    letterSpacing: '0.8px',
+    fontSize: 'var(--text-xxs)',
+    letterSpacing: '1.2px',
     textTransform: 'uppercase' as const,
     whiteSpace: 'nowrap' as const,
     zIndex: 1,
   },
   td: {
-    padding: '9px 12px',
+    padding: '10px 14px',
     borderBottom: '1px solid var(--color-border-light)',
     verticalAlign: 'top' as const,
     color: 'var(--color-text)',
+    transition: 'background var(--transition-fast)',
   },
   row: {
     cursor: 'pointer',
-    transition: 'background var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
   },
   rowSelected: {
     background: 'var(--color-primary-ghost)',
+    boxShadow: 'inset 3px 0 0 var(--color-primary)',
   },
   chunkText: {
     display: '-webkit-box',
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical' as const,
     overflow: 'hidden',
-    lineHeight: '1.5',
+    lineHeight: 1.6,
     maxWidth: '400px',
+    letterSpacing: '0.01em',
   },
   modifiedDot: {
     width: '7px',
@@ -141,26 +148,34 @@ const css = {
     borderRadius: '50%',
     background: 'var(--color-primary)',
     display: 'inline-block',
-    boxShadow: '0 0 4px var(--color-primary-glow)',
+    boxShadow: '0 0 6px var(--color-primary-glow)',
   },
   feedbackSelect: {
-    fontSize: '12px',
-    padding: '3px 4px',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-sm)',
+    fontSize: 'var(--text-sm)',
+    padding: '5px 8px',
+    border: '1px solid var(--color-border-light)',
+    borderRadius: 'var(--radius-md)',
     background: 'var(--color-surface)',
     cursor: 'pointer',
     outline: 'none',
     color: 'var(--color-text)',
     fontFamily: 'inherit',
-    maxWidth: '80px',
+    minWidth: '90px',
+    transition: 'all var(--transition-normal)',
+    boxShadow: 'var(--shadow-inner)',
+    appearance: 'none' as const,
+    WebkitAppearance: 'none' as const,
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 8px center',
+    paddingRight: '24px',
   },
   commentCell: {
     maxWidth: '120px',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
-    fontSize: '11px',
+    fontSize: 'var(--text-xs)',
     color: 'var(--color-text-secondary)',
     cursor: 'pointer',
   },
@@ -168,33 +183,34 @@ const css = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '4px',
-    padding: '8px 12px',
-    borderTop: '1px solid var(--color-border)',
+    gap: '3px',
+    padding: '10px 14px',
+    borderTop: '1px solid var(--color-border-light)',
     background: 'var(--color-surface-raised)',
     flexShrink: 0,
   },
   pageBtn: {
-    padding: '4px 8px',
+    padding: '4px 9px',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-sm)',
     background: 'var(--color-surface)',
-    fontSize: '12px',
+    fontSize: 'var(--text-xs)',
     cursor: 'pointer',
     fontFamily: 'var(--font-mono)',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     minWidth: '28px',
     textAlign: 'center' as const,
     color: 'var(--color-text)',
   },
   pageBtnActive: {
-    background: 'var(--color-primary)',
+    background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
     color: '#fff',
     borderColor: 'var(--color-primary)',
     fontWeight: 600,
+    boxShadow: '0 2px 6px rgba(230, 57, 70, 0.2)',
   },
   pageBtnDisabled: {
-    opacity: 0.4,
+    opacity: 0.35,
     cursor: 'default',
   },
   skeleton: {
@@ -205,16 +221,17 @@ const css = {
     height: '14px',
   },
   emptyState: {
-    padding: '40px 20px',
+    padding: '48px 20px',
     textAlign: 'center' as const,
     color: 'var(--color-text-muted)',
-    fontSize: '13px',
+    fontSize: 'var(--text-base)',
+    letterSpacing: '0.02em',
   },
   confirmOverlay: {
     position: 'fixed' as const,
     inset: 0,
-    background: 'rgba(26, 26, 46, 0.5)',
-    backdropFilter: 'blur(4px)',
+    background: 'rgba(26, 26, 46, 0.45)',
+    backdropFilter: 'blur(6px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -225,7 +242,7 @@ const css = {
     borderRadius: 'var(--radius-lg)',
     boxShadow: 'var(--shadow-xl)',
     padding: '28px 32px',
-    width: '380px',
+    width: '400px',
     maxWidth: '90vw',
     position: 'relative' as const,
     overflow: 'hidden',
@@ -236,20 +253,21 @@ const css = {
     left: 0,
     right: 0,
     height: '3px',
-    background: 'var(--color-primary)',
+    background: 'linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
   },
   confirmTitle: {
-    fontSize: '16px',
+    fontSize: 'var(--text-md)',
     fontWeight: 700,
     fontFamily: 'var(--font-display)',
     marginBottom: '12px',
     color: 'var(--color-text)',
+    letterSpacing: '0.3px',
   },
   confirmText: {
-    fontSize: '13px',
+    fontSize: 'var(--text-base)',
     color: 'var(--color-text-secondary)',
     marginBottom: '24px',
-    lineHeight: 1.6,
+    lineHeight: 1.7,
   },
   confirmActions: {
     display: 'flex',
@@ -295,13 +313,19 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
   const {
     chunks, selectedChunk, page, totalPages, isChunking,
     setChunk, setPage, fetchChunks, setSearch, searchQuery, triggerChunking,
+    updateChunkEval,
   } = useChunkStore();
 
-  const [strategy, setStrategy] = useState('recursive');
+  const [strategy, setStrategy] = useState('page');
   const [chunkSize, setChunkSize] = useState(2000);
   const [chunkOverlap, setChunkOverlap] = useState(200);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evalProgress, setEvalProgress] = useState({ completed: 0, total: 0 });
+  const evalEsRef = useRef<EventSource | null>(null);
 
   // Which strategies support chunk_size/overlap params
   const showSizeParams = ['character', 'recursive', 'markdown', 'semantic'].includes(strategy);
@@ -340,6 +364,15 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
     onChunkSelect?.(chunk);
   };
 
+  const handleCommentSave = async (chunk: Chunk) => {
+    setEditingCommentId(null);
+    const emoji = chunk.feedback_emoji || 'correct';
+    try {
+      await setFeedback(chunk.id, emoji, commentDraft);
+      if (docId) fetchChunks(docId);
+    } catch { /* silent */ }
+  };
+
   return (
     <div style={css.container}>
       <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
@@ -357,7 +390,7 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
         </select>
         {showSizeParams && (
           <>
-            <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)' }}>
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', letterSpacing: '0.3px' }}>
               サイズ
             </label>
             <input
@@ -368,14 +401,14 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
               min={100}
               step={100}
             />
-            <label style={{ fontSize: '11px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)' }}>
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)', letterSpacing: '0.3px' }}>
               重複
             </label>
             <input
               type="number"
               value={chunkOverlap}
               onChange={(e) => setChunkOverlap(Math.max(0, parseInt(e.target.value) || 0))}
-              style={{ ...css.searchInput, width: '60px', marginLeft: 0, fontFamily: 'var(--font-mono)', textAlign: 'right' as const }}
+              style={{ ...css.searchInput, width: '75px', marginLeft: 0, fontFamily: 'var(--font-mono)', textAlign: 'right' as const }}
               min={0}
               step={50}
             />
@@ -387,6 +420,37 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
           disabled={!docId || isChunking}
         >
           {isChunking ? '処理中...' : 'チャンク実行'}
+        </button>
+        <button
+          style={{ ...css.chunkBtn, opacity: !docId || isEvaluating || chunks.length === 0 ? 0.6 : 1, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', boxShadow: '0 2px 6px rgba(99,102,241,0.2)' }}
+          onClick={() => {
+            if (!docId || isEvaluating) return;
+            setIsEvaluating(true);
+            setEvalProgress({ completed: 0, total: 0 });
+            // Close any existing connection
+            if (evalEsRef.current) { evalEsRef.current.close(); evalEsRef.current = null; }
+            const es = subscribeEvaluation(docId, (data: EvalResult) => {
+              if (data.type === 'start') {
+                setEvalProgress({ completed: 0, total: data.total || 0 });
+              } else if (data.type === 'result' && data.chunk_id != null) {
+                updateChunkEval(data.chunk_id, {
+                  rag_score: data.rag_score ?? null,
+                  faq_score: data.faq_score ?? null,
+                  ai_suggestion: data.ai_suggestion ?? null,
+                });
+                setEvalProgress({ completed: data.completed || 0, total: data.total || 0 });
+              } else if (data.type === 'done') {
+                setIsEvaluating(false);
+                es.close();
+                evalEsRef.current = null;
+              }
+            });
+            es.onerror = () => { setIsEvaluating(false); es.close(); evalEsRef.current = null; };
+            evalEsRef.current = es;
+          }}
+          disabled={!docId || isEvaluating || chunks.length === 0}
+        >
+          {isEvaluating ? `評価中 ${evalProgress.completed}/${evalProgress.total}` : 'LLM評価'}
         </button>
         <input
           className="chunk-search-input"
@@ -406,6 +470,9 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
             <tr>
               <th style={{ ...css.th, width: '60px' }}>No</th>
               <th style={css.th}>チャンクテキスト</th>
+              <th style={{ ...css.th, width: '55px' }}>RAG</th>
+              <th style={{ ...css.th, width: '55px' }}>FAQ</th>
+              <th style={{ ...css.th, width: '180px' }}>AI提案</th>
               <th style={{ ...css.th, width: '50px' }}>修正</th>
               <th style={{ ...css.th, width: '80px' }}>フィードバック</th>
               <th style={{ ...css.th, width: '120px' }}>コメント</th>
@@ -416,7 +483,7 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
               <SkeletonRows />
             ) : chunks.length === 0 ? (
               <tr>
-                <td colSpan={5} style={css.emptyState}>
+                <td colSpan={8} style={css.emptyState}>
                   {docId ? 'チャンクデータがありません。チャンク実行を行ってください。' : 'ドキュメントを選択してください。'}
                 </td>
               </tr>
@@ -448,15 +515,57 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
                       }}
                     >
                       <td style={css.td}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', fontWeight: 500 }}>
                           {chunk.chunk_index + 1}
                         </span>
                       </td>
                       <td style={css.td}>
                         <div className="chunk-text-cell" style={css.chunkText}>{chunk.content}</div>
                       </td>
-                      <td style={{ ...css.td, textAlign: 'center' }}>
-                        {chunk.is_modified && <span style={css.modifiedDot} />}
+                      <td style={{ ...css.td, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
+                        {chunk.rag_score != null ? (
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            fontWeight: 600,
+                            background: chunk.rag_score >= 7 ? '#dcfce7' : chunk.rag_score >= 4 ? '#fef9c3' : '#fee2e2',
+                            color: chunk.rag_score >= 7 ? '#166534' : chunk.rag_score >= 4 ? '#854d0e' : '#991b1b',
+                          }}>{chunk.rag_score}</span>
+                        ) : <span style={{ opacity: 0.25 }}>—</span>}
+                      </td>
+                      <td style={{ ...css.td, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
+                        {chunk.faq_score != null ? (
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            fontWeight: 600,
+                            background: chunk.faq_score >= 7 ? '#dcfce7' : chunk.faq_score >= 4 ? '#fef9c3' : '#fee2e2',
+                            color: chunk.faq_score >= 7 ? '#166534' : chunk.faq_score >= 4 ? '#854d0e' : '#991b1b',
+                          }}>{chunk.faq_score}</span>
+                        ) : <span style={{ opacity: 0.25 }}>—</span>}
+                      </td>
+                      <td style={{ ...css.td, fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', maxWidth: '180px' }}
+                          title={chunk.ai_suggestion || ''}>
+                        {chunk.ai_suggestion ? (
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, lineHeight: 1.4 }}>
+                            {chunk.ai_suggestion}
+                          </div>
+                        ) : <span style={{ opacity: 0.25 }}>—</span>}
+                      </td>
+                      <td
+                        style={{ ...css.td, textAlign: 'center', cursor: chunk.is_modified ? 'pointer' : 'default' }}
+                        title={chunk.is_modified ? '編集済み — クリックで元に戻す' : '未編集'}
+                        onClick={(e) => {
+                          if (!chunk.is_modified) return;
+                          e.stopPropagation();
+                          if (confirm('編集を元に戻しますか？')) {
+                            deleteEdit(chunk.id).then(() => { if (docId) fetchChunks(docId); });
+                          }
+                        }}
+                      >
+                        {chunk.is_modified ? <span style={css.modifiedDot} /> : <span style={{ opacity: 0.25 }}>—</span>}
                       </td>
                       <td style={{ ...css.td, textAlign: 'center' }}>
                         <select
@@ -465,10 +574,9 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
                           onClick={(e) => e.stopPropagation()}
                           onChange={async (e) => {
                             e.stopPropagation();
-                            const val = e.target.value;
-                            if (!val) return;
+                            const val = e.target.value || null;
                             try {
-                              await setFeedback(chunk.id, val);
+                              await setFeedback(chunk.id, val, chunk.feedback_comment || undefined);
                               if (docId) fetchChunks(docId);
                             } catch { /* silent */ }
                           }}
@@ -481,10 +589,32 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
                           ))}
                         </select>
                       </td>
-                      <td style={css.td}>
-                        <div className="comment-cell" style={css.commentCell}>
-                          {chunk.feedback_comment || '\u2014'}
-                        </div>
+                      <td style={css.td} onClick={(e) => e.stopPropagation()}>
+                        {editingCommentId === chunk.id ? (
+                          <input
+                            autoFocus
+                            style={{
+                              ...css.searchInput,
+                              width: '100%',
+                              marginLeft: 0,
+                              fontSize: 'var(--text-xs)',
+                              padding: '4px 8px',
+                            }}
+                            value={commentDraft}
+                            onChange={(e) => setCommentDraft(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleCommentSave(chunk); if (e.key === 'Escape') setEditingCommentId(null); }}
+                            onBlur={() => handleCommentSave(chunk)}
+                          />
+                        ) : (
+                          <div
+                            className="comment-cell"
+                            style={{ ...css.commentCell, cursor: 'text' }}
+                            onClick={() => { setEditingCommentId(chunk.id); setCommentDraft(chunk.feedback_comment || ''); }}
+                            title="クリックして編集"
+                          >
+                            {chunk.feedback_comment || '\u2014'}
+                          </div>
+                        )}
                       </td>
                     </motion.tr>
                   );
@@ -509,7 +639,7 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
           </button>
           {buildPageNumbers(page, totalPages).map((p, i) =>
             p === '...' ? (
-              <span key={`e${i}`} style={{ padding: '0 4px', fontSize: '12px', color: 'var(--color-text-muted)' }}>...</span>
+              <span key={`e${i}`} style={{ padding: '0 4px', fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)' }}>...</span>
             ) : (
               <button
                 key={p}
@@ -565,14 +695,15 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
               <div style={css.confirmActions}>
                 <button
                   style={{
-                    padding: '8px 18px',
+                    padding: '8px 20px',
                     border: '1px solid var(--color-border)',
                     borderRadius: 'var(--radius-md)',
                     background: 'var(--color-surface)',
-                    fontSize: '13px',
+                    fontSize: 'var(--text-base)',
                     cursor: 'pointer',
                     fontFamily: 'var(--font-display)',
                     color: 'var(--color-text-secondary)',
+                    transition: 'all var(--transition-normal)',
                   }}
                   onClick={() => setConfirmOpen(false)}
                 >

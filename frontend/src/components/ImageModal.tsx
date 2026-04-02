@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const css = {
   overlay: {
@@ -97,21 +99,82 @@ const css = {
     fontFamily: 'var(--font-mono)',
     zIndex: 10,
   },
+  navBtn: {
+    position: 'absolute' as const,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '40px',
+    height: '64px',
+    borderRadius: 'var(--radius-sm)',
+    background: 'rgba(0,0,0,0.5)',
+    border: 'none',
+    color: '#fff',
+    fontSize: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    transition: 'background var(--transition-fast)',
+    backdropFilter: 'blur(4px)',
+  },
+  pageIndicator: {
+    position: 'absolute' as const,
+    bottom: '12px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(0,0,0,0.6)',
+    color: '#fff',
+    padding: '4px 14px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontFamily: 'var(--font-mono)',
+    zIndex: 10,
+    whiteSpace: 'nowrap' as const,
+  },
 } as const;
+
+const mdStyles = `
+.modal-md h1 { font-size: 1.3em; font-weight: 700; font-family: var(--font-display); margin: 0.8em 0 0.4em; color: var(--color-text); border-bottom: 1px solid var(--color-border-light); padding-bottom: 0.3em; }
+.modal-md h2 { font-size: 1.15em; font-weight: 700; font-family: var(--font-display); margin: 0.6em 0 0.3em; color: var(--color-text); }
+.modal-md h3 { font-size: 1em; font-weight: 600; font-family: var(--font-display); margin: 0.4em 0 0.2em; }
+.modal-md p { margin: 0.4em 0; line-height: 1.7; }
+.modal-md ul, .modal-md ol { margin: 0.3em 0; padding-left: 1.3em; }
+.modal-md li { margin: 0.15em 0; }
+.modal-md table { border-collapse: collapse; margin: 0.6em 0; width: 100%; font-size: 12px; }
+.modal-md th, .modal-md td { border: 1px solid var(--color-border); padding: 6px 10px; text-align: left; }
+.modal-md th { background: var(--color-surface-raised); font-weight: 600; font-family: var(--font-display); font-size: 11px; }
+.modal-md code { background: var(--color-surface-inset); padding: 1px 4px; border-radius: 3px; font-size: 0.9em; font-family: var(--font-mono); }
+.modal-md blockquote { border-left: 3px solid var(--color-primary); padding-left: 12px; margin: 0.4em 0; color: var(--color-text-secondary); }
+.modal-md img { max-width: 100%; border-radius: 4px; margin: 0.3em 0; }
+`;
 
 interface ImageModalProps {
   open: boolean;
   src: string;
   alt?: string;
+  pageMarkdown?: string;
+  pageNum?: number;
+  numPages?: number;
+  onPageChange?: (page: number) => void;
   onClose: () => void;
 }
 
-export default function ImageModal({ open, src, alt, onClose }: ImageModalProps) {
+export default function ImageModal({ open, src, alt, pageMarkdown, pageNum, numPages, onPageChange, onClose }: ImageModalProps) {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const posStart = useRef({ x: 0, y: 0 });
+  const slideDirRef = useRef(0);
+  const [slideDir, setSlideDir] = useState(0);
+
+  const goToPage = useCallback((page: number) => {
+    if (!onPageChange || !pageNum) return;
+    const dir = page > pageNum ? 1 : -1;
+    slideDirRef.current = dir;
+    setSlideDir(dir);
+    onPageChange(page);
+  }, [onPageChange, pageNum]);
 
   useEffect(() => {
     if (open) {
@@ -120,13 +183,20 @@ export default function ImageModal({ open, src, alt, onClose }: ImageModalProps)
     }
   }, [open, src]);
 
+  const isPageMode = !!(pageNum && numPages && onPageChange);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open) onClose();
+      if (!open) return;
+      if (e.key === 'Escape') onClose();
+      if (isPageMode) {
+        if (e.key === 'ArrowLeft' && pageNum! > 1) goToPage(pageNum! - 1);
+        if (e.key === 'ArrowRight' && pageNum! < numPages!) goToPage(pageNum! + 1);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+  }, [open, onClose, isPageMode, pageNum, numPages, onPageChange]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation();
@@ -188,7 +258,7 @@ export default function ImageModal({ open, src, alt, onClose }: ImageModalProps)
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Left: Image */}
+            {/* Left: Image with slide animation */}
             <div
               style={{
                 ...css.imagePane,
@@ -197,27 +267,98 @@ export default function ImageModal({ open, src, alt, onClose }: ImageModalProps)
               onWheel={handleWheel}
               onMouseDown={handleMouseDown}
             >
-              <img
-                src={src}
-                alt={alt || ''}
-                style={{
-                  ...css.image,
-                  transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
-                  transition: isDragging.current ? 'none' : 'transform 100ms ease',
-                }}
-                draggable={false}
-              />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.img
+                  key={src}
+                  src={src}
+                  alt={alt || ''}
+                  style={css.image}
+                  initial={isPageMode ? { x: slideDir * 300, opacity: 0 } : false}
+                  animate={{ x: 0, opacity: 1, scale, translateX: position.x / scale, translateY: position.y / scale }}
+                  exit={isPageMode ? { x: slideDir * -300, opacity: 0 } : { opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                  draggable={false}
+                />
+              </AnimatePresence>
               {scale !== 1 && (
                 <div style={css.zoomIndicator}>{Math.round(scale * 100)}%</div>
               )}
+              {isPageMode && (
+                <>
+                  <button
+                    style={{
+                      ...css.navBtn,
+                      left: '12px',
+                      opacity: pageNum! > 1 ? 1 : 0.3,
+                      cursor: pageNum! > 1 ? 'pointer' : 'default',
+                    }}
+                    onClick={() => { if (pageNum! > 1) goToPage(pageNum! - 1); }}
+                    title="前のページ"
+                  >
+                    &#x25C0;
+                  </button>
+                  <button
+                    style={{
+                      ...css.navBtn,
+                      right: '12px',
+                      opacity: pageNum! < numPages! ? 1 : 0.3,
+                      cursor: pageNum! < numPages! ? 'pointer' : 'default',
+                    }}
+                    onClick={() => { if (pageNum! < numPages!) goToPage(pageNum! + 1); }}
+                    title="次のページ"
+                  >
+                    &#x25B6;
+                  </button>
+                  <div style={css.pageIndicator}>
+                    {pageNum} / {numPages} ページ
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Right: Caption */}
+            {/* Right: Caption / Page content with slide animation */}
             <div style={css.captionPane}>
-              <div style={css.captionLabel}>キャプション</div>
-              <div style={css.captionText}>
-                {alt || 'キャプションなし'}
-              </div>
+              <style>{mdStyles}</style>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={`caption-${pageNum || alt}`}
+                  initial={isPageMode ? { y: slideDir * 40, opacity: 0 } : false}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={isPageMode ? { y: slideDir * -40, opacity: 0 } : { opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  {pageMarkdown ? (
+                    <>
+                      <div style={css.captionLabel}>ページ内容</div>
+                      <div className="modal-md" style={{ ...css.captionText, fontSize: '13px' }}>
+                        <Markdown remarkPlugins={[remarkGfm]}>{pageMarkdown}</Markdown>
+                      </div>
+                    </>
+                  ) : (
+                    (() => {
+                    const parts = (alt || '').split('\n');
+                    const imageName = parts[0] || '';
+                    const caption = parts.slice(1).join('\n').trim();
+                    return (
+                      <>
+                        {imageName && (
+                          <>
+                            <div style={css.captionLabel}>画像名</div>
+                            <div style={{ ...css.captionText, fontSize: '13px', fontFamily: 'var(--font-mono)', marginBottom: '16px', wordBreak: 'break-all' as const }}>
+                              {imageName}
+                            </div>
+                          </>
+                        )}
+                        <div style={css.captionLabel}>キャプション</div>
+                        <div style={css.captionText}>
+                          {caption || 'キャプションなし'}
+                        </div>
+                      </>
+                    );
+                  })()
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </motion.div>
         </motion.div>

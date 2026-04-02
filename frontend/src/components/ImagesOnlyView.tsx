@@ -21,8 +21,8 @@ const css = {
     padding: '24px',
     background: 'var(--color-surface)',
     borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
-    boxShadow: 'var(--shadow-xs)',
+    border: '1px solid var(--color-border-light)',
+    boxShadow: 'var(--shadow-sm)',
   },
   inner: {
     maxWidth: '1000px',
@@ -31,29 +31,30 @@ const css = {
   groupHeader: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    marginBottom: '12px',
-    marginTop: '24px',
+    gap: '12px',
+    marginBottom: '14px',
+    marginTop: '28px',
   },
   groupLabel: {
-    fontSize: '13px',
-    fontWeight: 600,
+    fontSize: 'var(--text-base)',
+    fontWeight: 700,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text)',
     letterSpacing: '0.5px',
   },
   groupCount: {
-    fontSize: '11px',
+    fontSize: 'var(--text-xxs)',
     fontFamily: 'var(--font-mono)',
-    color: 'var(--color-text-muted)',
+    color: 'var(--color-text-faint)',
     background: 'var(--color-surface-inset)',
-    padding: '2px 8px',
-    borderRadius: '10px',
+    padding: '2px 10px',
+    borderRadius: 'var(--radius-full)',
+    fontWeight: 500,
   },
   groupLine: {
     flex: 1,
     height: '1px',
-    background: 'var(--color-border)',
+    background: 'var(--color-border-light)',
   },
   grid: {
     display: 'grid',
@@ -63,11 +64,11 @@ const css = {
   },
   card: {
     background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
+    border: '1px solid var(--color-border-light)',
     borderRadius: 'var(--radius-md)',
     overflow: 'hidden',
     cursor: 'pointer',
-    transition: 'box-shadow var(--transition-normal), transform var(--transition-normal)',
+    transition: 'all var(--transition-normal)',
   },
   imageWrap: {
     width: '100%',
@@ -85,36 +86,38 @@ const css = {
   },
   caption: {
     padding: '10px 14px',
-    fontSize: '12px',
+    fontSize: 'var(--text-sm)',
     color: 'var(--color-text-secondary)',
     borderTop: '1px solid var(--color-border-light)',
     lineHeight: 1.5,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
+    letterSpacing: '0.01em',
   },
   loading: {
-    padding: '40px',
+    padding: '48px',
     textAlign: 'center' as const,
-    color: 'var(--color-text-muted)',
-    fontSize: '13px',
+    color: 'var(--color-text-faint)',
+    fontSize: 'var(--text-base)',
   },
   error: {
-    padding: '20px',
+    padding: '24px',
     textAlign: 'center' as const,
     color: 'var(--color-error)',
-    fontSize: '13px',
+    fontSize: 'var(--text-base)',
   },
   empty: {
-    padding: '40px',
+    padding: '48px',
     textAlign: 'center' as const,
-    color: 'var(--color-text-muted)',
-    fontSize: '13px',
+    color: 'var(--color-text-faint)',
+    fontSize: 'var(--text-base)',
+    letterSpacing: '0.02em',
   },
 } as const;
 
 interface ImagesOnlyViewProps {
-  onImageClick?: (src: string, alt: string) => void;
+  onImageClick?: (src: string, alt: string, pageMarkdown?: string, pageNum?: number, numPages?: number, imageList?: { src: string; alt: string }[]) => void;
 }
 
 export default function ImagesOnlyView({ onImageClick }: ImagesOnlyViewProps) {
@@ -147,27 +150,53 @@ export default function ImagesOnlyView({ onImageClick }: ImagesOnlyViewProps) {
     return { grouped: groups, hasCategories: true };
   }, [images]);
 
+  // Build flat ordered image list for navigation
+  const flatImageList = useMemo(() => {
+    if (!doc) return [];
+    const ordered: ImageWithCaption[] = [];
+    if (hasCategories && grouped) {
+      for (const cat of CATEGORY_ORDER) {
+        if (grouped[cat]) ordered.push(...grouped[cat]);
+      }
+      for (const cat of Object.keys(grouped)) {
+        if (!CATEGORY_ORDER.includes(cat)) ordered.push(...grouped[cat]);
+      }
+    } else {
+      ordered.push(...images);
+    }
+    return ordered.map((img) => {
+      const name = img.image_path.replace('images/', '');
+      return {
+        src: withToken(`/api/documents/${doc.id}/images/${name}`),
+        alt: img.caption ? `${name}\n${img.caption}` : name,
+      };
+    });
+  }, [doc, images, hasCategories, grouped]);
+
   if (!doc) {
     return <div style={css.loading}>ドキュメントを選択してください。</div>;
   }
 
-  const renderImageCard = (img: ImageWithCaption, idx: number) => {
+  const renderImageCard = (img: ImageWithCaption, globalIndex: number) => {
     const imgName = img.image_path.replace('images/', '');
     const imgSrc = doc
       ? withToken(`/api/documents/${doc.id}/images/${imgName}`)
       : '';
     return (
       <motion.div
-        key={`${img.image_path}-${idx}`}
+        key={`${img.image_path}-${globalIndex}`}
         style={css.card}
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.2, delay: idx * 0.03 }}
+        transition={{ duration: 0.2, delay: (globalIndex % 20) * 0.03 }}
         whileHover={{
           boxShadow: 'var(--shadow-md)',
           transform: 'translateY(-2px)',
         }}
-        onClick={() => onImageClick?.(imgSrc, img.caption || img.image_path)}
+        onClick={() => {
+          const altText = img.caption ? `${imgName}\n${img.caption}` : imgName;
+          onImageClick?.(imgSrc, altText, undefined, globalIndex + 1, flatImageList.length, flatImageList);
+        }}
       >
         <div style={css.imageWrap}>
           <img
@@ -199,35 +228,31 @@ export default function ImagesOnlyView({ onImageClick }: ImagesOnlyViewProps) {
       ) : hasCategories && grouped ? (
         // Grouped by category
         <div style={css.inner}>
-          {CATEGORY_ORDER.filter((cat) => grouped[cat] && grouped[cat].length > 0).map((cat) => (
-            <div key={cat}>
-              <div style={{ ...css.groupHeader, ...(cat === CATEGORY_ORDER.find((c) => grouped[c]?.length) ? { marginTop: 0 } : {}) }}>
-                <span style={css.groupLabel}>{CATEGORY_LABELS[cat] || cat}</span>
-                <span style={css.groupCount}>{grouped[cat].length}</span>
-                <div style={css.groupLine} />
-              </div>
-              <div className="images-grid" style={css.grid}>
-                <AnimatePresence>
-                  {grouped[cat].map((img, idx) => renderImageCard(img, idx))}
-                </AnimatePresence>
-              </div>
-            </div>
-          ))}
-          {/* Show any categories not in the standard order */}
-          {Object.keys(grouped).filter((cat) => !CATEGORY_ORDER.includes(cat)).map((cat) => (
-            <div key={cat}>
-              <div style={css.groupHeader}>
-                <span style={css.groupLabel}>{cat}</span>
-                <span style={css.groupCount}>{grouped[cat].length}</span>
-                <div style={css.groupLine} />
-              </div>
-              <div className="images-grid" style={css.grid}>
-                <AnimatePresence>
-                  {grouped[cat].map((img, idx) => renderImageCard(img, idx))}
-                </AnimatePresence>
-              </div>
-            </div>
-          ))}
+          {(() => {
+            let globalIdx = 0;
+            const allCats = [
+              ...CATEGORY_ORDER.filter((cat) => grouped[cat] && grouped[cat].length > 0),
+              ...Object.keys(grouped).filter((cat) => !CATEGORY_ORDER.includes(cat)),
+            ];
+            return allCats.map((cat) => {
+              const startIdx = globalIdx;
+              globalIdx += grouped[cat].length;
+              return (
+                <div key={cat}>
+                  <div style={{ ...css.groupHeader, ...(cat === allCats[0] ? { marginTop: 0 } : {}) }}>
+                    <span style={css.groupLabel}>{CATEGORY_LABELS[cat] || cat}</span>
+                    <span style={css.groupCount}>{grouped[cat].length}</span>
+                    <div style={css.groupLine} />
+                  </div>
+                  <div className="images-grid" style={css.grid}>
+                    <AnimatePresence>
+                      {grouped[cat].map((img, idx) => renderImageCard(img, startIdx + idx))}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       ) : (
         // Flat list (no categories)

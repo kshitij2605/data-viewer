@@ -1,7 +1,10 @@
 """Chunk API endpoints: chunking, listing, editing, diffing, SSE status."""
 import json
+import logging
 import re
 import threading
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Optional
 
@@ -121,6 +124,9 @@ def _format_chunk_response(chunk: Chunk, edit: Optional[ChunkEdit] = None,
         "feedback_emoji": feedback.emoji_type if feedback else None,
         "feedback_comment": feedback.comment if feedback else None,
         "image_refs": image_refs,
+        "rag_score": chunk.rag_score,
+        "faq_score": chunk.faq_score,
+        "ai_suggestion": chunk.ai_suggestion,
     }
     return result
 
@@ -439,3 +445,100 @@ async def chunk_status_sse(
 
 # Need json import for SSE
 import json as json
+
+
+@router.get("/api/documents/{document_id}/evaluate-chunks")
+async def evaluate_chunks_sse(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """SSE endpoint: evaluate all chunks in parallel, streaming results as they complete."""
+    import asyncio
+    from sse_starlette.sse import EventSourceResponse
+    from backend.services.llm_eval import evaluate_chunk_all
+    from backend.services.pdf_thumbnails import get_thumbnail_path
+    from backend.db import SessionLocal
+
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    chunk_rows = (
+        db.query(Chunk)
+        .filter(Chunk.document_id == document_id)
+        .order_by(Chunk.chunk_index)
+        .all()
+    )
+    if not chunk_rows:
+        raise HTTPException(status_code=404, detail="No chunks found")
+
+    # Snapshot chunk info before closing the request db session
+    chunk_info = [
+        {"id": c.id, "content": c.content, "page_number": c.page_number}
+        for c in chunk_rows
+    ]
+    total = len(chunk_info)
+
+    async def event_generator():
+        yield {"data": json.dumps({"type": "start", "total": total})}
+
+        # Queue to collect results from parallel tasks
+        result_queue: asyncio.Queue = asyncio.Queue()
+
+        async def eval_one(info: dict):
+            """Evaluate a single chunk and put result in queue."""
+            thumb_path = str(get_thumbnail_path(document_id, info["page_number"]))
+            try:
+                result = await evaluate_chunk_all(info["content"], thumb_path)
+                await result_queue.put({"chunk_id": info["id"], **result, "error": None})
+            except Exception as e:
+                logger.error("Eval failed for chunk %d: %s", info["id"], e)
+                await result_queue.put({
+                    "chunk_id": info["id"],
+                    "rag_score": None, "faq_score": None, "ai_suggestion": None,
+                    "error": str(e),
+                })
+
+        # Launch all chunk evaluations concurrently
+        tasks = [asyncio.create_task(eval_one(info)) for info in chunk_info]
+
+        # Persist and stream results as they arrive
+        completed = 0
+        eval_db = SessionLocal()
+        try:
+            while completed < total:
+                result = await result_queue.get()
+                completed += 1
+
+                # Save to database
+                chunk = eval_db.query(Chunk).filter(Chunk.id == result["chunk_id"]).first()
+                if chunk:
+                    if result["rag_score"] is not None:
+                        chunk.rag_score = result["rag_score"]
+                    if result["faq_score"] is not None:
+                        chunk.faq_score = result["faq_score"]
+                    if result["ai_suggestion"] is not None:
+                        chunk.ai_suggestion = result["ai_suggestion"]
+                    eval_db.commit()
+
+                # Stream to client
+                yield {"data": json.dumps({
+                    "type": "result",
+                    "chunk_id": result["chunk_id"],
+                    "rag_score": result["rag_score"],
+                    "faq_score": result["faq_score"],
+                    "ai_suggestion": result["ai_suggestion"],
+                    "completed": completed,
+                    "total": total,
+                })}
+
+        finally:
+            eval_db.close()
+            for t in tasks:
+                if not t.done():
+                    t.cancel()
+
+        yield {"data": json.dumps({"type": "done", "total": total})}
+
+    return EventSourceResponse(event_generator())

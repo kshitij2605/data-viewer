@@ -49,6 +49,9 @@ class Chunk(Base):
     chunk_overlap_setting = Column(Integer, default=200)
     similarity_threshold = Column(Float)
     min_chunk_size = Column(Integer)
+    rag_score = Column(Float, nullable=True)
+    faq_score = Column(Float, nullable=True)
+    ai_suggestion = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
     document = relationship("Document", back_populates="chunks")

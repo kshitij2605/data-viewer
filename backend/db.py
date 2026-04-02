@@ -31,3 +31,13 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Migrate: add score columns if missing
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(__import__('sqlalchemy').text("PRAGMA table_info(chunks)"))]
+        if "rag_score" not in cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE chunks ADD COLUMN rag_score REAL"))
+        if "faq_score" not in cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE chunks ADD COLUMN faq_score REAL"))
+        if "ai_suggestion" not in cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE chunks ADD COLUMN ai_suggestion TEXT"))
+        conn.commit()

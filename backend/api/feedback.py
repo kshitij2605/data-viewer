@@ -15,15 +15,15 @@ VALID_EMOJI_TYPES = {"correct", "incorrect", "needs_edit", "unclear", "partial"}
 
 
 class FeedbackRequest(BaseModel):
-    emoji_type: str
+    emoji_type: Optional[str] = None
     comment: Optional[str] = ""
 
     @field_validator("emoji_type")
     @classmethod
     def validate_emoji_type(cls, v):
-        if v not in VALID_EMOJI_TYPES:
+        if v is not None and v != "" and v not in VALID_EMOJI_TYPES:
             raise ValueError(f"emoji_type must be one of: {', '.join(sorted(VALID_EMOJI_TYPES))}")
-        return v
+        return v if v and v in VALID_EMOJI_TYPES else None
 
 
 @router.put("/api/chunks/{chunk_id}/feedback")

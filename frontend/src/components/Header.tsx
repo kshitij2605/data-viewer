@@ -1,95 +1,54 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../stores/authStore.ts';
 
-const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
-
-function formatJapaneseDateTime(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const day = DAY_NAMES[date.getDay()];
-  const h = String(date.getHours()).padStart(2, '0');
-  const min = String(date.getMinutes()).padStart(2, '0');
-  return `${y}/${m}/${d} (${day}) ${h}:${min}`;
-}
-
 const css = {
   header: {
-    height: '52px',
+    height: '54px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '0 20px',
-    background: 'var(--color-surface)',
-    borderBottom: '1px solid var(--color-border)',
+    padding: '0 24px',
+    background: 'linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-raised) 100%)',
+    borderBottom: '1px solid var(--color-border-light)',
     position: 'relative' as const,
     zIndex: 100,
     flexShrink: 0,
-    boxShadow: 'var(--shadow-xs)',
+    boxShadow: '0 1px 8px rgba(26, 26, 46, 0.04)',
   },
   left: {
     display: 'flex',
     alignItems: 'center',
     gap: '14px',
-    minWidth: '200px',
-  },
-  dateText: {
-    fontSize: '12px',
-    fontFamily: 'var(--font-mono)',
-    color: 'var(--color-text-muted)',
-    fontWeight: 400,
-    letterSpacing: '0.3px',
-    whiteSpace: 'nowrap' as const,
-  },
-  homeBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: '16px',
-    cursor: 'pointer',
-    padding: '6px 8px',
-    borderRadius: 'var(--radius-sm)',
-    transition: 'background var(--transition-fast)',
-    display: 'flex',
-    alignItems: 'center',
-    color: 'var(--color-text-secondary)',
-  },
-  center: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    position: 'absolute' as const,
-    left: '50%',
-    transform: 'translateX(-50%)',
   },
   logo: {
-    height: '26px',
-    width: '26px',
+    height: '34px',
+    width: '34px',
     objectFit: 'contain' as const,
   },
   companyName: {
-    fontSize: '15px',
+    fontSize: 'var(--text-lg)',
     fontWeight: 700,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text)',
-    letterSpacing: '2px',
+    letterSpacing: '3px',
     whiteSpace: 'nowrap' as const,
   },
   appLabel: {
-    fontSize: '11px',
-    fontWeight: 500,
+    fontSize: 'var(--text-xxs)',
+    fontWeight: 600,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-primary)',
-    letterSpacing: '1px',
-    marginLeft: '4px',
-    padding: '2px 8px',
+    letterSpacing: '1.5px',
+    padding: '3px 12px',
     background: 'var(--color-primary-ghost)',
-    borderRadius: '10px',
+    borderRadius: 'var(--radius-full)',
+    textTransform: 'uppercase' as const,
   },
   right: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '14px',
     minWidth: '200px',
     justifyContent: 'flex-end',
   },
@@ -97,68 +56,99 @@ const css = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    fontSize: '13px',
+    fontSize: 'var(--text-sm)',
     fontWeight: 500,
     color: 'var(--color-text-secondary)',
   },
   avatar: {
-    width: '30px',
-    height: '30px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))',
+    width: '32px',
+    height: '32px',
+    borderRadius: 'var(--radius-full)',
+    background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)',
     color: '#fff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '12px',
+    fontSize: 'var(--text-xs)',
     fontWeight: 700,
     fontFamily: 'var(--font-display)',
     flexShrink: 0,
-    boxShadow: '0 2px 6px rgba(230, 57, 70, 0.25)',
+    boxShadow: '0 2px 8px rgba(230, 57, 70, 0.2), 0 0 0 2px rgba(230, 57, 70, 0.06)',
+    transition: 'transform var(--transition-normal), box-shadow var(--transition-normal)',
   },
   logoutBtn: {
     background: 'none',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-sm)',
-    padding: '5px 12px',
-    fontSize: '11px',
+    padding: '5px 14px',
+    fontSize: 'var(--text-xs)',
     fontWeight: 500,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text-muted)',
     cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
     letterSpacing: '0.5px',
   },
   loginBtn: {
-    padding: '6px 16px',
+    padding: '7px 18px',
     background: 'var(--color-primary)',
     color: '#fff',
     border: 'none',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '13px',
+    fontSize: 'var(--text-sm)',
     fontWeight: 600,
     cursor: 'pointer',
-    transition: 'background var(--transition-fast)',
+    transition: 'all var(--transition-normal)',
+    boxShadow: '0 2px 8px rgba(230, 57, 70, 0.2)',
+  },
+  themeTrack: {
+    width: '52px',
+    height: '28px',
+    borderRadius: '14px',
+    border: 'none',
+    cursor: 'pointer',
+    position: 'relative' as const,
+    flexShrink: 0,
+    transition: 'background 400ms ease',
+    padding: 0,
+    outline: 'none',
+  },
+  themeKnob: {
+    position: 'absolute' as const,
+    top: '3px',
+    width: '22px',
+    height: '22px',
+    borderRadius: '50%',
+    background: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+    transition: 'left 400ms cubic-bezier(0.68, -0.15, 0.27, 1.15)',
   },
 } as const;
 
 interface HeaderProps {
-  onHomeClick?: () => void;
   onMenuClick?: () => void;
 }
 
-export default function Header({ onHomeClick, onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick }: HeaderProps) {
   const { user, isAuthenticated, logout } = useAuthStore();
-  const [dateStr, setDateStr] = useState(() => formatJapaneseDateTime(new Date()));
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setDateStr(formatJapaneseDateTime(new Date()));
-    }, 60_000);
-    return () => clearInterval(timer);
-  }, []);
 
   const initial = user?.display_name?.charAt(0) ?? user?.username?.charAt(0) ?? 'U';
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === 'light' ? 'dark' : 'light'));
+  }, []);
 
   return (
     <motion.header
@@ -171,25 +161,74 @@ export default function Header({ onHomeClick, onMenuClick }: HeaderProps) {
         <button className="hamburger-btn" onClick={onMenuClick} title="メニュー">
           &#9776;
         </button>
-        <span className="header-date" style={css.dateText}>{dateStr}</span>
-        <button
-          style={css.homeBtn}
-          onClick={onHomeClick}
-          title="ホーム"
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-        >
-          &#x1F3E0;
-        </button>
-      </div>
-
-      <div className="header-center" style={css.center}>
         <img src="/logo.png" alt="大塚商会" style={css.logo} />
         <span className="header-company-name" style={css.companyName}>大塚商会</span>
-        <span style={css.appLabel}>DV</span>
+        <span style={css.appLabel}>Data Viewer</span>
       </div>
 
       <div className="header-right" style={css.right}>
+        <button
+          style={{
+            ...css.themeTrack,
+            background: theme === 'dark' ? '#1a1a2e' : '#ccc8be',
+          }}
+          onClick={toggleTheme}
+          title={theme === 'light' ? 'ダークモード' : 'ライトモード'}
+          aria-label="Toggle theme"
+        >
+          <div style={{
+            ...css.themeKnob,
+            left: theme === 'dark' ? '27px' : '3px',
+          }}>
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke={theme === 'dark' ? '#c4b581' : '#e6a000'}
+              strokeWidth="2"
+              strokeLinecap="round"
+              style={{
+                transform: theme === 'dark' ? 'rotate(40deg)' : 'rotate(90deg)',
+                transition: 'transform 450ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <mask id="moon-mask">
+                <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                <circle
+                  cx={theme === 'dark' ? '12' : '30'}
+                  cy={theme === 'dark' ? '4' : '0'}
+                  r="9"
+                  fill="black"
+                  style={{ transition: 'cx 450ms ease, cy 450ms ease' }}
+                />
+              </mask>
+              <circle
+                cx="12" cy="12"
+                r={theme === 'dark' ? 9 : 5}
+                fill={theme === 'dark' ? '#c4b581' : '#e6a000'}
+                mask="url(#moon-mask)"
+                style={{ transition: 'r 450ms ease, fill 450ms ease' }}
+              />
+              <g
+                stroke={theme === 'dark' ? '#c4b581' : '#e6a000'}
+                style={{
+                  opacity: theme === 'dark' ? 0 : 1,
+                  transition: 'opacity 300ms ease',
+                }}
+              >
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </g>
+            </svg>
+          </div>
+        </button>
         {isAuthenticated && user ? (
           <>
             <div style={css.userInfo}>

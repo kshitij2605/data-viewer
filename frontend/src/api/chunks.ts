@@ -17,6 +17,9 @@ export interface Chunk {
   feedback_emoji: string | null;
   feedback_comment: string | null;
   image_refs: string[];
+  rag_score: number | null;
+  faq_score: number | null;
+  ai_suggestion: string | null;
 }
 
 export type ChunkDetail = Chunk;
@@ -77,6 +80,32 @@ export async function getDiff(
 
 export async function deleteEdit(chunkId: number): Promise<void> {
   await client.delete(`/chunks/${chunkId}/edit`);
+}
+
+export interface EvalResult {
+  type: 'start' | 'result' | 'done';
+  chunk_id?: number;
+  rag_score?: number | null;
+  faq_score?: number | null;
+  ai_suggestion?: string | null;
+  completed?: number;
+  total?: number;
+}
+
+export function subscribeEvaluation(
+  docId: number,
+  onMessage: (data: EvalResult) => void,
+): EventSource {
+  const token = localStorage.getItem('token') ?? '';
+  const url = `/api/documents/${docId}/evaluate-chunks?token=${encodeURIComponent(token)}`;
+  const es = new EventSource(url);
+  es.onmessage = (event) => {
+    try {
+      const data: EvalResult = JSON.parse(event.data);
+      onMessage(data);
+    } catch { /* ignore */ }
+  };
+  return es;
 }
 
 export function subscribeChunkStatus(
