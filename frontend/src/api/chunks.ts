@@ -82,6 +82,10 @@ export async function deleteEdit(chunkId: number): Promise<void> {
   await client.delete(`/chunks/${chunkId}/edit`);
 }
 
+export async function deleteAllChunks(docId: number): Promise<void> {
+  await client.delete(`/documents/${docId}/chunks`);
+}
+
 export interface EvalResult {
   type: 'start' | 'result' | 'done';
   chunk_id?: number;

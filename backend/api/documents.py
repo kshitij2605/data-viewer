@@ -1,5 +1,7 @@
 """Document loading and listing endpoints."""
+import asyncio
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -8,9 +10,11 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.auth import get_current_user
-from backend.db import get_db
+from backend.db import get_db, SessionLocal
 from backend.models import Document, User
 from backend.services.pdf_thumbnails import generate_thumbnails
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -27,13 +31,14 @@ class DocumentOut(BaseModel):
     num_pages: int
     num_images: int
     num_tables: int
+    ai_review_status: Optional[str] = "pending"
 
     class Config:
         from_attributes = True
 
 
 @router.post("/load", response_model=DocumentOut)
-def load_document(
+async def load_document(
     body: LoadRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -90,6 +95,9 @@ def load_document(
             generate_thumbnails(str(layout_pdfs[0]), doc.id)
         except Exception:
             pass  # thumbnails are optional
+
+    # Trigger AI review in background
+    _launch_ai_review(doc.id, str(work_dir), num_pages, num_images, num_tables)
 
     return doc
 
@@ -166,3 +174,90 @@ def _find_metadata(folder: Path) -> Optional[Path]:
             if candidate.exists():
                 return candidate
     return None
+
+
+def _find_mmd_file(folder_path: str) -> Optional[Path]:
+    """Find the *_with_captions.mmd file in the document folder."""
+    folder = Path(folder_path)
+    candidates = list(folder.glob("*_with_captions.mmd"))
+    return candidates[0] if candidates else None
+
+
+def _launch_ai_review(doc_id: int, folder_path: str, num_pages: int, num_images: int, num_tables: int):
+    """Launch async AI review task for a newly loaded document."""
+    async def _run():
+        from backend.services.llm_eval import evaluate_chunking_strategy
+        bg_db = SessionLocal()
+        try:
+            doc = bg_db.query(Document).filter(Document.id == doc_id).first()
+            if not doc:
+                return
+
+            mmd_file = _find_mmd_file(folder_path)
+            if not mmd_file:
+                doc.ai_review_status = "error"
+                doc.ai_review = "Markdownファイルが見つかりません"
+                bg_db.commit()
+                return
+
+            doc.ai_review_status = "running"
+            bg_db.commit()
+
+            markdown_content = mmd_file.read_text(encoding="utf-8")
+            review = await evaluate_chunking_strategy(markdown_content, num_pages, num_images, num_tables, doc_title=doc.pdf_title or doc.folder_name)
+
+            doc.ai_review = review
+            doc.ai_review_status = "done"
+            bg_db.commit()
+        except Exception as e:
+            logger.error("AI review failed for doc %d: %s", doc_id, e)
+            try:
+                doc = bg_db.query(Document).filter(Document.id == doc_id).first()
+                if doc:
+                    doc.ai_review_status = "error"
+                    doc.ai_review = f"エラー: {str(e)[:200]}"
+                    bg_db.commit()
+            except Exception:
+                pass
+        finally:
+            bg_db.close()
+
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_run())
+    except RuntimeError:
+        # No running loop — skip
+        pass
+
+
+@router.get("/{document_id}/ai-review")
+def get_ai_review(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {
+        "status": doc.ai_review_status or "pending",
+        "review": doc.ai_review,
+    }
+
+
+@router.post("/{document_id}/ai-review/retry")
+async def retry_ai_review(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    doc.ai_review_status = "pending"
+    doc.ai_review = None
+    db.commit()
+
+    _launch_ai_review(doc.id, doc.folder_path, doc.num_pages, doc.num_images, doc.num_tables)
+    return {"status": "pending"}

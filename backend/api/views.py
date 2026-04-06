@@ -12,6 +12,7 @@ from backend.services.markdown_parser import (
     extract_text_only,
     extract_tables,
     extract_images_with_captions,
+    extract_table_html_map,
 )
 
 router = APIRouter(prefix="/api/documents", tags=["views"])
@@ -49,8 +50,32 @@ def get_tables_only(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    doc = _get_document(document_id, db)
+    work_dir = Path(doc.folder_path)
+
+    # Extract markdown tables from .mmd file
     md = _read_markdown(document_id, db)
-    return {"tables": extract_tables(md)}
+    md_tables = extract_tables(md)
+
+    # Collect table images from tables/ folder
+    tables_dir = work_dir / "tables"
+    table_images = []
+    if tables_dir.is_dir():
+        for f in sorted(tables_dir.iterdir()):
+            if f.is_file() and f.suffix.lower() in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+                # Parse page number from filename (e.g., "11_10.jpg" -> page 11)
+                import re
+                match = re.match(r"(?:page)?(\d+)[_]", f.name)
+                page_num = int(match.group(1)) if match else None
+                table_images.append({
+                    "filename": f.name,
+                    "page_number": page_num,
+                })
+
+    # Extract HTML table content mapped to table image filenames
+    table_html_map = extract_table_html_map(md)
+
+    return {"tables": md_tables, "table_images": table_images, "table_html_map": table_html_map}
 
 
 @router.get("/{document_id}/images-only")

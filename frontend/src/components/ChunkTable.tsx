@@ -313,7 +313,7 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
   const {
     chunks, selectedChunk, page, totalPages, isChunking,
     setChunk, setPage, fetchChunks, setSearch, searchQuery, triggerChunking,
-    updateChunkEval,
+    updateChunkEval, clearChunks,
   } = useChunkStore();
 
   const [strategy, setStrategy] = useState('page');
@@ -322,6 +322,7 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [expandedSuggestionId, setExpandedSuggestionId] = useState<number | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalProgress, setEvalProgress] = useState({ completed: 0, total: 0 });
@@ -346,6 +347,31 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
     setConfirmOpen(true);
   };
 
+  const startEvaluation = () => {
+    if (!docId || isEvaluating) return;
+    setIsEvaluating(true);
+    setEvalProgress({ completed: 0, total: 0 });
+    if (evalEsRef.current) { evalEsRef.current.close(); evalEsRef.current = null; }
+    const es = subscribeEvaluation(docId, (data: EvalResult) => {
+      if (data.type === 'start') {
+        setEvalProgress({ completed: 0, total: data.total || 0 });
+      } else if (data.type === 'result' && data.chunk_id != null) {
+        updateChunkEval(data.chunk_id, {
+          rag_score: data.rag_score ?? null,
+          faq_score: data.faq_score ?? null,
+          ai_suggestion: data.ai_suggestion ?? null,
+        });
+        setEvalProgress({ completed: data.completed || 0, total: data.total || 0 });
+      } else if (data.type === 'done') {
+        setIsEvaluating(false);
+        es.close();
+        evalEsRef.current = null;
+      }
+    });
+    es.onerror = (err) => { console.error('LLM evaluation SSE error:', err); setIsEvaluating(false); es.close(); evalEsRef.current = null; };
+    evalEsRef.current = es;
+  };
+
   const confirmChunk = async () => {
     setConfirmOpen(false);
     if (!docId) return;
@@ -354,6 +380,9 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
         chunk_size: chunkSize,
         chunk_overlap: chunkOverlap,
       });
+      // Small delay to ensure chunks are committed before evaluation starts
+      await new Promise((r) => setTimeout(r, 500));
+      startEvaluation();
     } catch {
       // error handled by store
     }
@@ -366,7 +395,7 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
 
   const handleCommentSave = async (chunk: Chunk) => {
     setEditingCommentId(null);
-    const emoji = chunk.feedback_emoji || 'correct';
+    const emoji = chunk.feedback_emoji || null;
     try {
       await setFeedback(chunk.id, emoji, commentDraft);
       if (docId) fetchChunks(docId);
@@ -415,43 +444,32 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
           </>
         )}
         <button
-          style={{ ...css.chunkBtn, opacity: !docId || isChunking ? 0.6 : 1 }}
+          style={{ ...css.chunkBtn, opacity: !docId || isChunking || isEvaluating ? 0.6 : 1 }}
           onClick={handleChunk}
-          disabled={!docId || isChunking}
+          disabled={!docId || isChunking || isEvaluating}
         >
-          {isChunking ? '処理中...' : 'チャンク実行'}
+          {isChunking ? '処理中...' : isEvaluating ? `評価中 ${evalProgress.completed}/${evalProgress.total}` : 'チャンク実行'}
         </button>
-        <button
-          style={{ ...css.chunkBtn, opacity: !docId || isEvaluating || chunks.length === 0 ? 0.6 : 1, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', boxShadow: '0 2px 6px rgba(99,102,241,0.2)' }}
-          onClick={() => {
-            if (!docId || isEvaluating) return;
-            setIsEvaluating(true);
-            setEvalProgress({ completed: 0, total: 0 });
-            // Close any existing connection
-            if (evalEsRef.current) { evalEsRef.current.close(); evalEsRef.current = null; }
-            const es = subscribeEvaluation(docId, (data: EvalResult) => {
-              if (data.type === 'start') {
-                setEvalProgress({ completed: 0, total: data.total || 0 });
-              } else if (data.type === 'result' && data.chunk_id != null) {
-                updateChunkEval(data.chunk_id, {
-                  rag_score: data.rag_score ?? null,
-                  faq_score: data.faq_score ?? null,
-                  ai_suggestion: data.ai_suggestion ?? null,
-                });
-                setEvalProgress({ completed: data.completed || 0, total: data.total || 0 });
-              } else if (data.type === 'done') {
-                setIsEvaluating(false);
-                es.close();
-                evalEsRef.current = null;
-              }
-            });
-            es.onerror = () => { setIsEvaluating(false); es.close(); evalEsRef.current = null; };
-            evalEsRef.current = es;
-          }}
-          disabled={!docId || isEvaluating || chunks.length === 0}
-        >
-          {isEvaluating ? `評価中 ${evalProgress.completed}/${evalProgress.total}` : 'LLM評価'}
-        </button>
+        {chunks.length > 0 && docId && (
+          <button
+            style={{
+              padding: '6px 12px',
+              background: 'var(--color-surface)',
+              color: 'var(--color-error, #c0392b)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: 'var(--text-sm)',
+              fontFamily: 'var(--font-display)',
+              cursor: 'pointer',
+              transition: 'all var(--transition-normal)',
+              letterSpacing: '0.3px',
+            }}
+            onClick={() => clearChunks(docId)}
+            title="チャンクをデータベースから削除"
+          >
+            削除
+          </button>
+        )}
         <input
           className="chunk-search-input"
           style={css.searchInput}
@@ -470,8 +488,8 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
             <tr>
               <th style={{ ...css.th, width: '60px' }}>No</th>
               <th style={css.th}>チャンクテキスト</th>
-              <th style={{ ...css.th, width: '55px' }}>RAG</th>
-              <th style={{ ...css.th, width: '55px' }}>FAQ</th>
+              <th style={{ ...css.th, width: '80px' }}>RAGの使いやすさ</th>
+              <th style={{ ...css.th, width: '80px' }}>FAQの使いやすさ</th>
               <th style={{ ...css.th, width: '180px' }}>AI提案</th>
               <th style={{ ...css.th, width: '50px' }}>修正</th>
               <th style={{ ...css.th, width: '80px' }}>フィードバック</th>
@@ -546,12 +564,29 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
                           }}>{chunk.faq_score}</span>
                         ) : <span style={{ opacity: 0.25 }}>—</span>}
                       </td>
-                      <td style={{ ...css.td, fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', maxWidth: '180px' }}
-                          title={chunk.ai_suggestion || ''}>
+                      <td style={{ ...css.td, fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', maxWidth: '180px', cursor: chunk.ai_suggestion ? 'pointer' : 'default' }}
+                          onClick={(e) => {
+                            if (!chunk.ai_suggestion) return;
+                            e.stopPropagation();
+                            setExpandedSuggestionId(expandedSuggestionId === chunk.id ? null : chunk.id);
+                          }}>
                         {chunk.ai_suggestion ? (
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, lineHeight: 1.4 }}>
+                          <motion.div
+                            initial={false}
+                            animate={{
+                              maxHeight: expandedSuggestionId === chunk.id ? 300 : 40,
+                            }}
+                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            style={{
+                              overflow: 'hidden',
+                              lineHeight: 1.5,
+                              ...(expandedSuggestionId === chunk.id
+                                ? { whiteSpace: 'pre-wrap' as const, wordBreak: 'break-word' as const }
+                                : { textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }),
+                            }}
+                          >
                             {chunk.ai_suggestion}
-                          </div>
+                          </motion.div>
                         ) : <span style={{ opacity: 0.25 }}>—</span>}
                       </td>
                       <td

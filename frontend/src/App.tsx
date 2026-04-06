@@ -16,6 +16,7 @@ import MarkdownView from './components/MarkdownView.tsx';
 import TextOnlyView from './components/TextOnlyView.tsx';
 import TablesOnlyView from './components/TablesOnlyView.tsx';
 import ImagesOnlyView from './components/ImagesOnlyView.tsx';
+import AIReviewView from './components/AIReviewView.tsx';
 import PdfViewer from './components/PdfViewer.tsx';
 import { getPageMarkdown } from './api/documents.ts';
 import { withToken } from './api/client.ts';
@@ -184,7 +185,7 @@ function App() {
             transition={{ duration: 0.2 }}
             style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
           >
-            <TablesOnlyView />
+            <TablesOnlyView onImageClick={handleImageClick} />
           </motion.div>
         );
       case 'images':
@@ -198,6 +199,19 @@ function App() {
             style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
           >
             <ImagesOnlyView onImageClick={handleImageClick} />
+          </motion.div>
+        );
+      case 'ai_review':
+        return (
+          <motion.div
+            key="ai_review"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+          >
+            <AIReviewView />
           </motion.div>
         );
       case 'chunks':

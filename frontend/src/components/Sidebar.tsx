@@ -3,14 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import FolderLoadDialog from './FolderLoadDialog.tsx';
 
-type ViewMode = 'chunks' | 'markdown' | 'text' | 'tables' | 'images';
+type ViewMode = 'chunks' | 'markdown' | 'text' | 'tables' | 'images' | 'ai_review';
 
 const VIEW_OPTIONS: { mode: ViewMode; label: string; icon: string }[] = [
   { mode: 'chunks', label: 'チャンク', icon: '&#x29C9;' },
   { mode: 'markdown', label: 'Markdown', icon: '&#x23CE;' },
-  { mode: 'text', label: 'テキスト', icon: '&#x1D5AB;' },
   { mode: 'tables', label: 'テーブル', icon: '&#x25A6;' },
   { mode: 'images', label: '画像', icon: '&#x1F5FB;' },
+  { mode: 'ai_review', label: 'AIレビュー', icon: '&#x2728;' },
 ];
 
 const css = {

@@ -40,4 +40,10 @@ def init_db():
             conn.execute(__import__('sqlalchemy').text("ALTER TABLE chunks ADD COLUMN faq_score REAL"))
         if "ai_suggestion" not in cols:
             conn.execute(__import__('sqlalchemy').text("ALTER TABLE chunks ADD COLUMN ai_suggestion TEXT"))
+        # Migrate documents table
+        doc_cols = [row[1] for row in conn.execute(__import__('sqlalchemy').text("PRAGMA table_info(documents)"))]
+        if "ai_review" not in doc_cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN ai_review TEXT"))
+        if "ai_review_status" not in doc_cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN ai_review_status TEXT DEFAULT 'pending'"))
         conn.commit()

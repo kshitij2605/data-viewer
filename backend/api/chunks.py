@@ -400,6 +400,20 @@ def delete_edit(
     return {"detail": "Edit reverted"}
 
 
+@router.delete("/api/documents/{document_id}/chunks")
+def delete_all_chunks(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    deleted = db.query(Chunk).filter(Chunk.document_id == document_id).delete()
+    db.commit()
+    return {"detail": f"Deleted {deleted} chunks"}
+
+
 @router.get("/api/documents/{document_id}/chunk-status")
 async def chunk_status_sse(
     document_id: int,

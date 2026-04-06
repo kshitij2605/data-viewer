@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import * as docApi from '../api/documents.ts';
 import type { Document } from '../api/documents.ts';
 
-type ViewMode = 'chunks' | 'markdown' | 'text' | 'tables' | 'images';
+type ViewMode = 'chunks' | 'markdown' | 'text' | 'tables' | 'images' | 'ai_review';
 
 interface DocumentState {
   documents: Document[];

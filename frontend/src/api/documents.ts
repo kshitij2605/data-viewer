@@ -8,6 +8,12 @@ export interface Document {
   num_pages: number;
   num_images: number;
   num_tables: number;
+  ai_review_status?: string;
+}
+
+export interface AIReview {
+  status: string;
+  review: string | null;
 }
 
 export interface DocumentDetail extends Document {
@@ -18,6 +24,12 @@ export interface DocumentDetail extends Document {
 export interface Table {
   description: string;
   content: string;
+  page_number: number | null;
+}
+
+export interface TableImage {
+  filename: string;
+  page_number: number | null;
 }
 
 export interface ImageWithCaption {
@@ -77,11 +89,11 @@ export async function getTextOnly(id: number): Promise<string[]> {
   return res.data.paragraphs;
 }
 
-export async function getTablesOnly(id: number): Promise<Table[]> {
-  const res = await client.get<{ tables: Table[] }>(
+export async function getTablesOnly(id: number): Promise<{ tables: Table[]; table_images: TableImage[]; table_html_map: Record<string, string> }> {
+  const res = await client.get<{ tables: Table[]; table_images: TableImage[]; table_html_map: Record<string, string> }>(
     `/documents/${id}/tables-only`,
   );
-  return res.data.tables;
+  return res.data;
 }
 
 export async function getImagesOnly(id: number): Promise<ImageWithCaption[]> {
@@ -89,4 +101,13 @@ export async function getImagesOnly(id: number): Promise<ImageWithCaption[]> {
     `/documents/${id}/images-only`,
   );
   return res.data.images;
+}
+
+export async function getAIReview(id: number): Promise<AIReview> {
+  const res = await client.get<AIReview>(`/documents/${id}/ai-review`);
+  return res.data;
+}
+
+export async function retryAIReview(id: number): Promise<void> {
+  await client.post(`/documents/${id}/ai-review/retry`);
 }

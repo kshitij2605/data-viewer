@@ -7,7 +7,7 @@ The Data Viewer application includes an LLM-based evaluation system that assigns
 - **RAG Usability Score** (0-10): How useful the chunk is for Retrieval-Augmented Generation systems.
 - **FAQ Usability Score** (0-10): How suitable the chunk is for generating FAQ (Frequently Asked Questions) content.
 
-Scores are computed by sending each chunk to a large language model (Qwen/Qwen3.5-122B-A10B) with a structured evaluation rubric. The LLM acts as an expert judge, providing chain-of-thought reasoning followed by numeric scores.
+Scores are computed by sending each chunk to a large language model (Qwen/Qwen3.5-122B-A10B, 64k context) with a structured evaluation rubric. The LLM acts as an expert judge, providing reasoning followed by numeric scores. Evaluation auto-triggers after chunking completes, with results streaming to the UI in real-time via SSE.
 
 ---
 
@@ -126,7 +126,7 @@ The criteria were selected by synthesizing findings from multiple sources:
 1. **Single-judge variance**: Each chunk is evaluated by a single LLM call. Multi-judge averaging (running 3+ evaluations and taking the mean) would improve reliability but increases latency and cost proportionally.
 2. **No calibration examples**: The current prompt does not include scored example chunks (few-shot). Adding 2-3 anchor examples per score band would further improve consistency.
 3. **No human validation baseline**: The scores have not yet been validated against human annotations using inter-rater agreement metrics (e.g., Cohen's Kappa). This should be done before treating scores as authoritative.
-4. **Very long chunks**: Extremely long chunks may increase evaluation latency, though the Qwen3.5-122B model's large context window handles typical chunk sizes without issue.
+4. **Very long chunks**: Extremely long chunks may increase evaluation latency, though the Qwen3.5-122B model's large context window handles typical chunk sizes without issue. No input truncation is applied.
 
 ---
 
@@ -135,17 +135,17 @@ The criteria were selected by synthesizing findings from multiple sources:
 ### Backend
 
 - **Service**: `backend/services/llm_eval.py` - Contains the prompt, LLM API call, and response parsing logic.
-- **API endpoint**: `POST /api/documents/{document_id}/evaluate-chunks` - Triggers background evaluation of all chunks in a document.
-- **Database columns**: `rag_score` (REAL, nullable) and `faq_score` (REAL, nullable) on the `chunks` table.
-- **Execution**: Evaluation runs asynchronously in a background task. Scores are saved to the database as each chunk completes.
+- **API endpoint**: `GET /api/documents/{document_id}/evaluate-chunks` - SSE endpoint that evaluates all chunks in parallel and streams results as they complete.
+- **Database columns**: `rag_score` (REAL, nullable), `faq_score` (REAL, nullable), and `ai_suggestion` (TEXT, nullable) on the `chunks` table.
+- **Execution**: All chunks are evaluated concurrently via `asyncio.create_task`. RAG/FAQ scoring and AI suggestion run in parallel per chunk via `asyncio.gather`. Results stream to the frontend via Server-Sent Events.
 
 ### Frontend
 
-- **Display**: Two columns in the chunk table (RAG / FAQ) with color-coded badges:
+- **Display**: Three columns in the chunk table (RAGの使いやすさ / FAQの使いやすさ / AI提案) with color-coded score badges:
   - Green (7-10): Good to excellent quality
   - Yellow (4-6): Moderate quality, may need improvement
   - Red (0-3): Low quality, likely needs re-chunking or editing
-- **Trigger**: "LLM評価" button in the chunk toolbar. Polls for results every 3 seconds until all chunks are scored.
+- **Trigger**: Evaluation starts automatically after chunking completes. Progress is shown on the chunking button (e.g., "評価中 3/15"). Results stream in real-time via SSE.
 
 ---
 

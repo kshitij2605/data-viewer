@@ -178,3 +178,38 @@ Make `emoji_type` nullable in the backend (`FeedbackRequest` model accepts `None
 ### Consequences
 
 - The database may have feedback rows with `emoji_type=NULL` and only a comment — query logic must handle this.
+
+---
+
+## ADR-007: Two-Phase AI Chunking Strategy Review
+
+**Date:** 2026-04-03
+**Status:** Accepted
+
+### Context
+
+Users need guidance on which chunking strategy and parameters to use for each document. Initial attempts at a single-prompt approach failed because:
+- Truncating the document to fit the context window caused the LLM to miss large tables and sections at the end, producing incorrect size estimates.
+- The LLM produced generic advice ("integrated reports typically have sections of 500-1000 characters") instead of document-specific recommendations.
+
+### Decision
+
+Implement a two-phase approach using the full 64k model context window:
+
+1. **Phase 1 — Analysis**: Send the entire document markdown to the LLM (split into ~50k character parts if needed, with parallel analysis of each part). The LLM is instructed to measure exact section names, character counts, table sizes, and structural patterns — not to guess or generalize.
+2. **Phase 2 — Recommendation**: Feed the analysis results into a second prompt that generates strategy recommendations. The prompt explicitly requires citing actual section names and measured sizes, and forbids generic advice.
+
+The AI review triggers automatically when a document is loaded, with results stored in the `ai_review` column on the documents table. A "再分析" (re-analyze) button allows manual re-triggering.
+
+### Rationale
+
+- Two-phase analysis ensures the LLM has seen the entire document before making recommendations, even for documents that exceed a single prompt's capacity.
+- Parallel part analysis keeps latency manageable for large documents.
+- Explicit instructions to measure (not estimate) section sizes and cite actual content produce significantly more accurate and useful recommendations.
+- Storing results in the database avoids re-running expensive LLM calls on every view.
+
+### Consequences
+
+- Two LLM calls per document (or more for very large documents) increases latency and cost compared to a single-call approach.
+- Analysis quality depends on the LLM faithfully measuring sections rather than guessing — the prompt enforces this but cannot guarantee it.
+- Results may become stale if the document's markdown is re-extracted; the retry button addresses this.

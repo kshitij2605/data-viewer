@@ -329,9 +329,15 @@ export default function ImageModal({ open, src, alt, pageMarkdown, pageNum, numP
                 >
                   {pageMarkdown ? (
                     <>
-                      <div style={css.captionLabel}>ページ内容</div>
+                      <div style={css.captionLabel}>
+                        {pageMarkdown.trimStart().startsWith('<table') ? '抽出テーブル' : 'ページ内容'}
+                      </div>
                       <div className="modal-md" style={{ ...css.captionText, fontSize: '13px' }}>
-                        <Markdown remarkPlugins={[remarkGfm]}>{pageMarkdown}</Markdown>
+                        {pageMarkdown.trimStart().startsWith('<table') ? (
+                          <div dangerouslySetInnerHTML={{ __html: pageMarkdown }} />
+                        ) : (
+                          <Markdown remarkPlugins={[remarkGfm]}>{pageMarkdown}</Markdown>
+                        )}
                       </div>
                     </>
                   ) : (

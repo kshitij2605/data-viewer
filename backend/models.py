@@ -29,6 +29,8 @@ class Document(Base):
     num_pages = Column(Integer, default=0)
     num_images = Column(Integer, default=0)
     num_tables = Column(Integer, default=0)
+    ai_review = Column(Text, nullable=True)
+    ai_review_status = Column(Text, default="pending")  # pending, running, done, error
     loaded_at = Column(TIMESTAMP, server_default=func.now())
     loaded_by_user_id = Column(Integer, ForeignKey("users.id"))
 

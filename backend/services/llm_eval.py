@@ -21,7 +21,7 @@ _client: httpx.AsyncClient | None = None
 async def _get_client() -> httpx.AsyncClient:
     global _client
     if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(timeout=120.0)
+        _client = httpx.AsyncClient(timeout=120.0, trust_env=False)
     return _client
 
 
@@ -88,9 +88,139 @@ AI_SUGGESTION_PROMPT = """\
 ## 指示
 1. 画像内の該当箇所とテキストを比較する
 2. 欠落している情報、誤変換、レイアウト崩れなどを特定する
-3. 問題がなければ「問題なし」と回答する
+3. 問題がなければ「問題なし」とだけ回答する（説明不要）
 
-簡潔に日本語で回答してください（最大100文字）。/no_think"""
+問題がある場合のみ簡潔に指摘してください（最大100文字）。問題がない場合は「問題なし」の3文字のみ回答。/no_think"""
+
+
+CHUNKING_ANALYSIS_PROMPT = """\
+あなたはドキュメント処理とRAGシステムの専門家です。以下はMarkdownドキュメントの{part_label}です。
+
+このパートの内容を詳細に分析し、以下の情報を抽出してください：
+- 各セクション（ヘッダー）の名前と文字数
+- テーブルの有無とサイズ（行数・おおよその文字数）
+- 画像参照の分布
+- 段落の長さのパターン（短い/中程度/長い）
+- 特殊な構造（箇条書き、番号リスト、ネストされた構造）
+
+**重要**: ドキュメント内の各セクション・テーブル・段落を一つずつ確認し、文字数を正確に数えてください。推測ではなく実測に基づいて報告してください。
+
+```
+{content}
+```
+
+簡潔に箇条書きで報告してください。/no_think"""
+
+
+CHUNKING_RECOMMENDATION_PROMPT = """\
+あなたはドキュメント処理とRAGシステムの専門家です。
+
+## ドキュメントの分析結果
+
+以下は、あるドキュメントの各パートの詳細分析です：
+
+{analysis_results}
+
+## ドキュメント統計
+- 総ページ数: {num_pages}
+- 総文字数: {total_chars}
+- 画像数: {num_images}
+- テーブル数: {num_tables}
+
+## 利用可能なチャンキング戦略
+
+- **Character** — 固定文字数で分割。シンプルだが文脈を無視する。
+- **Recursive** — 段落・文・文字の順で再帰的に分割。構造を部分的に保持。
+- **Markdown** — Markdownのヘッダー（#, ##, ###）と段落区切りで分割。構造を最も保持。
+- **Semantic** — 文の意味的類似度に基づいて分割。類似度が閾値以下で新チャンクを作成。
+- **Page-wise** — ページ区切り（---）で分割。元のページ構造を維持。
+
+## 設定可能なパラメータ
+
+- **chunk_size**: チャンクの最大文字数（100〜10000）
+- **chunk_overlap**: チャンク間の重複文字数（0〜chunk_size/2）
+- **similarity_threshold**: セマンティック分割の閾値（0.0〜1.0、低いほど細かく分割）
+- **min_chunk_size**: 最小チャンクサイズ（セマンティック分割用）
+
+## 指示
+
+上記の分析結果に基づいて、最適なチャンキング戦略を推薦してください。
+
+**重要な注意事項**:
+- 一般的・汎用的なアドバイスは一切不要です。
+- すべての判断は上記の分析結果から得られた具体的なセクション名、文字数、テーブルサイズに基づいてください。
+- 「このドキュメントの『○○』セクションは約X文字あるため…」のように、実際のデータを引用して説明してください。
+- 特にテーブルや大きなセクションのサイズを考慮し、それらが分割されないパラメータを推薦してください。
+- chunk_sizeは、ドキュメント内で最も大きなセクションやテーブルが分断されないサイズに設定してください。
+
+以下の観点で回答してください：
+
+- **ドキュメント構造の要約**: セクション構成、最小/最大セクションサイズ、テーブルの最大サイズ等
+- **推薦チャンキング戦略**: 戦略名のみ記載（番号不要）。具体的な根拠を説明
+- **推薦パラメータ**: 各パラメータの推薦値と、その値を選んだ具体的な根拠（ドキュメント内の実際のサイズデータに基づく）
+- **RAGへの影響**: 具体的なセクションを例に挙げて説明
+- **FAQ生成への影響**: 具体的なセクションの内容を例に挙げて説明
+- **代替案**: 次善の戦略とその使い分け
+
+日本語でMarkdown形式で回答してください。
+
+**出力の冒頭**: 必ず「以下は『{doc_title}』の分析結果と、最適なチャンキング戦略の提案です。」から始めてください。「ご提示いただいた」「ご依頼の」等の対話的な表現は使わず、独立したレポートとして書いてください。/no_think"""
+
+
+# Max chars per analysis chunk — ~50k chars leaves room for prompt within 64k token context
+_ANALYSIS_CHUNK_SIZE = 50000
+
+
+async def evaluate_chunking_strategy(markdown_content: str, num_pages: int, num_images: int, num_tables: int, doc_title: str = "") -> str:
+    """Analyze entire document (multi-pass if needed) and recommend optimal chunking strategy."""
+    total_chars = len(markdown_content)
+
+    # Phase 1: Analyze the document — split into parts if too large
+    parts = []
+    for i in range(0, len(markdown_content), _ANALYSIS_CHUNK_SIZE):
+        parts.append(markdown_content[i:i + _ANALYSIS_CHUNK_SIZE])
+
+    if len(parts) == 1:
+        # Document fits in one pass — analyze directly
+        analysis_prompt = CHUNKING_ANALYSIS_PROMPT.format(
+            part_label="全文",
+            content=parts[0],
+        )
+        analysis = await _call_llm([{"role": "user", "content": analysis_prompt}], max_tokens=2048)
+        analysis_results = analysis
+    else:
+        # Multi-part analysis in parallel
+        async def analyze_part(idx: int, part: str) -> str:
+            prompt = CHUNKING_ANALYSIS_PROMPT.format(
+                part_label=f"パート{idx + 1}/{len(parts)}",
+                content=part,
+            )
+            return await _call_llm([{"role": "user", "content": prompt}], max_tokens=1500)
+
+        import asyncio
+        tasks = [asyncio.create_task(analyze_part(i, p)) for i, p in enumerate(parts)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        analysis_parts = []
+        for i, r in enumerate(results):
+            if isinstance(r, str):
+                analysis_parts.append(f"### パート{i + 1}\n{r}")
+            else:
+                logger.error("Analysis failed for part %d: %s", i + 1, r)
+                analysis_parts.append(f"### パート{i + 1}\n分析失敗: {str(r)[:100]}")
+
+        analysis_results = "\n\n".join(analysis_parts)
+
+    # Phase 2: Generate recommendation based on analysis
+    rec_prompt = CHUNKING_RECOMMENDATION_PROMPT.format(
+        analysis_results=analysis_results,
+        num_pages=num_pages,
+        total_chars=total_chars,
+        num_images=num_images,
+        num_tables=num_tables,
+        doc_title=doc_title or "対象ドキュメント",
+    )
+    return await _call_llm([{"role": "user", "content": rec_prompt}], max_tokens=3000)
 
 
 async def _call_llm(messages: list[dict], max_tokens: int = 512) -> str:
@@ -122,7 +252,7 @@ async def evaluate_ai_suggestion(content: str, page_image_path: str | None) -> s
     if not page_image_path or not Path(page_image_path).exists():
         # No image available — text-only fallback
         text = await _call_llm([{"role": "user", "content":
-            f"以下のテキストチャンクを確認し、明らかな問題（不完全な文、文脈の欠落、意味不明な断片）があれば簡潔に指摘してください。問題なければ「問題なし」と回答。最大100文字。/no_think\n\n```\n{content}\n```"
+            f"以下のテキストチャンクを確認し、明らかな問題（不完全な文、文脈の欠落、意味不明な断片）があれば簡潔に指摘してください。問題がなければ「問題なし」の3文字のみ回答（説明不要）。問題がある場合のみ最大100文字で指摘。/no_think\n\n```\n{content}\n```"
         }], max_tokens=200)
         return text.strip()[:200]
 

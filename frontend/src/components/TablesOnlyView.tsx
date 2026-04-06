@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import { getTablesOnly } from '../api/documents.ts';
-import type { Table } from '../api/documents.ts';
+import { withToken } from '../api/client.ts';
+import type { TableImage } from '../api/documents.ts';
 
 const css = {
   container: {
@@ -23,13 +22,36 @@ const css = {
     maxWidth: '900px',
     margin: '0 auto',
   },
-  card: {
+  sectionLabel: {
+    fontSize: 'var(--text-sm)',
+    fontWeight: 700,
+    fontFamily: 'var(--font-display)',
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '1.5px',
+    padding: '8px 0',
+    borderBottom: '1px solid var(--color-border-light)',
+    marginBottom: '4px',
+  },
+  imgCard: {
     background: 'var(--color-surface)',
     border: '1px solid var(--color-border-light)',
     borderRadius: 'var(--radius-md)',
     overflow: 'hidden',
     boxShadow: 'var(--shadow-sm)',
-    transition: 'box-shadow var(--transition-normal)',
+    cursor: 'pointer',
+    transition: 'all var(--transition-normal)',
+  },
+  imgBody: {
+    padding: '8px',
+    display: 'flex',
+    justifyContent: 'center',
+    background: 'var(--color-surface-inset)',
+  },
+  tableImg: {
+    maxWidth: '100%',
+    height: 'auto',
+    borderRadius: 'var(--radius-sm)',
   },
   cardHeader: {
     padding: '10px 16px',
@@ -40,11 +62,17 @@ const css = {
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text-secondary)',
     letterSpacing: '0.3px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  cardBody: {
-    padding: '14px 16px',
-    fontSize: 'var(--text-base)',
-    overflow: 'auto',
+  pageBadge: {
+    fontSize: 'var(--text-xxs)',
+    fontFamily: 'var(--font-mono)',
+    background: 'var(--color-surface-inset)',
+    padding: '2px 8px',
+    borderRadius: 'var(--radius-full)',
+    color: 'var(--color-text-muted)',
   },
   loading: {
     padding: '48px',
@@ -67,16 +95,14 @@ const css = {
   },
 } as const;
 
-const tableStyles = `
-.table-card table { border-collapse: collapse; width: 100%; font-size: 12px; }
-.table-card th, .table-card td { border: 1px solid var(--color-border); padding: 7px 12px; text-align: left; }
-.table-card th { background: var(--color-surface-raised); font-weight: 600; font-size: 11px; font-family: var(--font-display); }
-.table-card tr:hover { background: var(--color-surface-raised); }
-`;
+interface TablesOnlyViewProps {
+  onImageClick?: (src: string, alt: string, pageMarkdown?: string) => void;
+}
 
-export default function TablesOnlyView() {
+export default function TablesOnlyView({ onImageClick }: TablesOnlyViewProps) {
   const doc = useDocumentStore((s) => s.selectedDocument);
-  const [tables, setTables] = useState<Table[]>([]);
+  const [tableImages, setTableImages] = useState<TableImage[]>([]);
+  const [tableHtmlMap, setTableHtmlMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -85,7 +111,10 @@ export default function TablesOnlyView() {
     setLoading(true);
     setError('');
     getTablesOnly(doc.id)
-      .then(setTables)
+      .then((data) => {
+        setTableImages(data.table_images);
+        setTableHtmlMap(data.table_html_map || {});
+      })
       .catch(() => setError('テーブルの取得に失敗しました。'))
       .finally(() => setLoading(false));
   }, [doc]);
@@ -94,6 +123,13 @@ export default function TablesOnlyView() {
     return <div style={css.loading}>ドキュメントを選択してください。</div>;
   }
 
+  const handleTableImageClick = (img: TableImage) => {
+    if (!doc || !onImageClick) return;
+    const src = withToken(`/api/documents/${doc.id}/tables/${img.filename}`);
+    const html = tableHtmlMap[img.filename];
+    onImageClick(src, img.filename, html || undefined);
+  };
+
   return (
     <motion.div
       style={css.container}
@@ -101,31 +137,40 @@ export default function TablesOnlyView() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
-      <style>{tableStyles}</style>
       {loading ? (
         <div style={css.loading}>読み込み中...</div>
       ) : error ? (
         <div style={css.error}>{error}</div>
-      ) : tables.length === 0 ? (
+      ) : tableImages.length === 0 ? (
         <div style={css.empty}>テーブルデータがありません。</div>
       ) : (
         <div style={css.grid}>
+          <div style={css.sectionLabel}>テーブル画像 ({tableImages.length})</div>
           <AnimatePresence>
-            {tables.map((t, idx) => (
+            {tableImages.map((img, idx) => (
               <motion.div
-                key={idx}
-                style={css.card}
+                key={`img-${img.filename}`}
+                style={css.imgCard}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: idx * 0.05 }}
+                transition={{ duration: 0.2, delay: idx * 0.04 }}
+                onClick={() => handleTableImageClick(img)}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-md)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-sm)'; }}
               >
                 <div style={css.cardHeader}>
-                  {t.description || `テーブル ${idx + 1}`}
+                  <span>{img.filename}</span>
+                  {img.page_number != null && (
+                    <span style={css.pageBadge}>p.{img.page_number}</span>
+                  )}
                 </div>
-                <div className="table-card" style={css.cardBody}>
-                  <Markdown remarkPlugins={[remarkGfm]}>
-                    {t.content}
-                  </Markdown>
+                <div style={css.imgBody}>
+                  <img
+                    src={withToken(`/api/documents/${doc.id}/tables/${img.filename}`)}
+                    alt={img.filename}
+                    style={css.tableImg}
+                    loading="lazy"
+                  />
                 </div>
               </motion.div>
             ))}

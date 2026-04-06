@@ -18,6 +18,7 @@ interface ChunkState {
   setSearch: (query: string) => void;
   setPage: (page: number) => void;
   updateChunkEval: (chunkId: number, data: { rag_score?: number | null; faq_score?: number | null; ai_suggestion?: string | null }) => void;
+  clearChunks: (docId: number) => Promise<void>;
   fetchChunks: (docId: number) => Promise<void>;
   triggerChunking: (
     docId: number,
@@ -47,6 +48,11 @@ export const useChunkStore = create<ChunkState>((set, get) => ({
 
   setPage: (page: number) => {
     set({ page });
+  },
+
+  clearChunks: async (docId: number) => {
+    await chunkApi.deleteAllChunks(docId);
+    set({ chunks: [], selectedChunk: null, total: 0, page: 1, totalPages: 1, searchQuery: '' });
   },
 
   updateChunkEval: (chunkId, data) => {

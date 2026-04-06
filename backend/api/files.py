@@ -50,6 +50,20 @@ def get_image(
     return FileResponse(str(image_path), media_type="image/jpeg")
 
 
+@router.get("/{document_id}/tables/{name}")
+def get_table_image(
+    document_id: int,
+    name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = _get_doc(document_id, db)
+    table_path = Path(doc.folder_path) / "tables" / name
+    if not table_path.exists():
+        raise HTTPException(status_code=404, detail="Table image not found")
+    return FileResponse(str(table_path), media_type="image/jpeg")
+
+
 @router.get("/{document_id}/layout-pdf")
 def get_layout_pdf(
     document_id: int,
