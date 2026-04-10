@@ -213,3 +213,39 @@ The AI review triggers automatically when a document is loaded, with results sto
 - Two LLM calls per document (or more for very large documents) increases latency and cost compared to a single-call approach.
 - Analysis quality depends on the LLM faithfully measuring sections rather than guessing — the prompt enforces this but cannot guarantee it.
 - Results may become stale if the document's markdown is re-extracted; the retry button addresses this.
+
+---
+
+## ADR-008: Table Image Viewer with Extracted HTML Tables
+
+**Date:** 2026-04-08
+**Status:** Accepted
+
+### Context
+
+The OCR pipeline extracts tables from PDFs as both images (`tables/` folder) and HTML `<table>` elements in the `.mmd` markdown file. The format in the markdown is:
+
+```
+![](tables/11_10.jpg)
+
+<table><thead><tr><th>...</th></tr></thead><tbody>...</tbody></table>
+```
+
+Users needed to view the original table image alongside its extracted structured content to verify extraction quality.
+
+### Decision
+
+1. **Backend**: Add `extract_table_html_map()` in `markdown_parser.py` that parses the `.mmd` file for `![](tables/FILENAME)` patterns followed by `<table>...</table>` blocks, returning a `{filename: html_string}` mapping. The `/tables-only` endpoint returns this map alongside the table image list.
+2. **Frontend**: When a user clicks a table image in `TablesOnlyView`, the `ImageModal` opens with the table image on the left and the extracted HTML table rendered on the right. The modal detects HTML content (starts with `<table`) and renders it via `dangerouslySetInnerHTML` instead of the markdown renderer.
+3. **Fallback**: If no HTML table is found for a given table image, the modal shows only the filename (no description).
+
+### Rationale
+
+- The HTML `<table>` content is already present in the `.mmd` file directly after the table image reference — parsing this pattern is straightforward and requires no additional extraction step.
+- Rendering raw HTML tables preserves the exact structure (colspan, rowspan, nested elements) that a markdown-to-table conversion would lose.
+- Reusing the existing `ImageModal` component with a content-type check keeps the codebase simple.
+
+### Consequences
+
+- Raw HTML is rendered via `dangerouslySetInnerHTML` — acceptable since the content comes from our own OCR pipeline, not user input.
+- Table images without a corresponding HTML block in the `.mmd` file will show no extracted content.

@@ -267,15 +267,16 @@ export default function ImageModal({ open, src, alt, pageMarkdown, pageNum, numP
               onWheel={handleWheel}
               onMouseDown={handleMouseDown}
             >
-              <AnimatePresence mode="wait" initial={false}>
+              <AnimatePresence mode="wait" initial={false} custom={slideDirRef.current}>
                 <motion.img
                   key={src}
+                  custom={slideDirRef.current}
                   src={src}
                   alt={alt || ''}
                   style={css.image}
-                  initial={isPageMode ? { x: slideDir * 300, opacity: 0 } : false}
+                  initial={(dir: number) => isPageMode ? { x: dir * 300, opacity: 0 } : false}
                   animate={{ x: 0, opacity: 1, scale, translateX: position.x / scale, translateY: position.y / scale }}
-                  exit={isPageMode ? { x: slideDir * -300, opacity: 0 } : { opacity: 0 }}
+                  exit={(dir: number) => isPageMode ? { x: dir * -300, opacity: 0 } : { opacity: 0 }}
                   transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                   draggable={false}
                 />
@@ -319,12 +320,13 @@ export default function ImageModal({ open, src, alt, pageMarkdown, pageNum, numP
             {/* Right: Caption / Page content with slide animation */}
             <div style={css.captionPane}>
               <style>{mdStyles}</style>
-              <AnimatePresence mode="wait" initial={false}>
+              <AnimatePresence mode="wait" initial={false} custom={slideDirRef.current}>
                 <motion.div
                   key={`caption-${pageNum || alt}`}
-                  initial={isPageMode ? { y: slideDir * 40, opacity: 0 } : false}
+                  custom={slideDirRef.current}
+                  initial={(dir: number) => isPageMode ? { y: dir * 40, opacity: 0 } : false}
                   animate={{ y: 0, opacity: 1 }}
-                  exit={isPageMode ? { y: slideDir * -40, opacity: 0 } : { opacity: 0 }}
+                  exit={(dir: number) => isPageMode ? { y: dir * -40, opacity: 0 } : { opacity: 0 }}
                   transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                 >
                   {pageMarkdown ? (

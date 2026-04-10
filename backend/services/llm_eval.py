@@ -76,21 +76,16 @@ RAG_FAQ_PROMPT = """\
 
 
 AI_SUGGESTION_PROMPT = """\
-あなたはドキュメント品質の専門家です。以下のテキストチャンクは、添付のページ画像から抽出されたものです。
-
-画像とテキストを比較して、抽出されたテキストに欠落や誤りがないか確認してください。
+画像とテキストを比較し、欠落・誤変換・レイアウト崩れがあれば指摘せよ。
 
 ## チャンクテキスト
 ```
 {chunk_text}
 ```
 
-## 指示
-1. 画像内の該当箇所とテキストを比較する
-2. 欠落している情報、誤変換、レイアウト崩れなどを特定する
-3. 問題がなければ「問題なし」とだけ回答する（説明不要）
-
-問題がある場合のみ簡潔に指摘してください（最大100文字）。問題がない場合は「問題なし」の3文字のみ回答。/no_think"""
+## 出力ルール（厳守）
+- 問題がない場合 → 「問題なし」とだけ出力。それ以外の文字は一切書くな。正確である旨の説明も不要。
+- 問題がある場合 → 具体的な問題点のみ簡潔に列挙（最大300文字）。/no_think"""
 
 
 CHUNKING_ANALYSIS_PROMPT = """\
@@ -252,9 +247,9 @@ async def evaluate_ai_suggestion(content: str, page_image_path: str | None) -> s
     if not page_image_path or not Path(page_image_path).exists():
         # No image available — text-only fallback
         text = await _call_llm([{"role": "user", "content":
-            f"以下のテキストチャンクを確認し、明らかな問題（不完全な文、文脈の欠落、意味不明な断片）があれば簡潔に指摘してください。問題がなければ「問題なし」の3文字のみ回答（説明不要）。問題がある場合のみ最大100文字で指摘。/no_think\n\n```\n{content}\n```"
-        }], max_tokens=200)
-        return text.strip()[:200]
+            f"以下のテキストチャンクに明らかな問題（不完全な文、文脈の欠落、意味不明な断片）があれば指摘せよ。\n\n```\n{content}\n```\n\n出力ルール（厳守）：問題なし→「問題なし」とだけ出力（説明不要）。問題あり→具体的問題点のみ列挙（最大300文字）。/no_think"
+        }], max_tokens=512)
+        return text.strip()
 
     # Encode image as base64
     image_data = Path(page_image_path).read_bytes()
@@ -270,8 +265,8 @@ async def evaluate_ai_suggestion(content: str, page_image_path: str | None) -> s
             ],
         }
     ]
-    text = await _call_llm(messages, max_tokens=200)
-    return text.strip()[:200]
+    text = await _call_llm(messages, max_tokens=512)
+    return text.strip()
 
 
 async def evaluate_chunk_all(content: str, page_image_path: str | None) -> dict:

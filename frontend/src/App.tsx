@@ -60,7 +60,7 @@ function App() {
   // Image modal state
   const [imageModal, setImageModal] = useState({ open: false, src: '', alt: '', pageMarkdown: '', pageNum: 0, numPages: 0 });
   // Store image list for navigation in images view
-  const imageListRef = useRef<{ src: string; alt: string }[]>([]);
+  const imageListRef = useRef<{ src: string; alt: string; pageMarkdown?: string }[]>([]);
 
   // Diff view state
   const [diffView, setDiffView] = useState<{ open: boolean; chunkId: number | null }>({
@@ -74,7 +74,7 @@ function App() {
     checkAuth();
   }, [checkAuth]);
 
-  const handleImageClick = useCallback((src: string, alt: string, pageMarkdown?: string, pageNum?: number, numPages?: number, imageList?: { src: string; alt: string }[]) => {
+  const handleImageClick = useCallback((src: string, alt: string, pageMarkdown?: string, pageNum?: number, numPages?: number, imageList?: { src: string; alt: string; pageMarkdown?: string }[]) => {
     imageListRef.current = imageList || [];
     setImageModal({ open: true, src, alt, pageMarkdown: pageMarkdown || '', pageNum: pageNum || 0, numPages: numPages || 0 });
   }, []);
@@ -85,7 +85,7 @@ function App() {
     if (list.length > 0) {
       const idx = page - 1;
       if (idx >= 0 && idx < list.length) {
-        setImageModal((prev) => ({ ...prev, src: list[idx].src, alt: list[idx].alt, pageMarkdown: '', pageNum: page }));
+        setImageModal((prev) => ({ ...prev, src: list[idx].src, alt: list[idx].alt, pageMarkdown: list[idx].pageMarkdown || '', pageNum: page }));
       }
       return;
     }

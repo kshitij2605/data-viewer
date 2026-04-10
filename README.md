@@ -9,7 +9,7 @@ A document analysis and chunk quality evaluation tool for reviewing PDF document
 - **LLM Quality Evaluation** — RAG usability and FAQ usability scores (0-10) via Qwen3.5-122B-A10B as judge, with multimodal AI suggestions comparing chunk text against page images
 - **AI Chunking Review** — Automatic LLM analysis recommending optimal chunking strategy and parameters per document
 - **Human Feedback** — Per-chunk emoji feedback and comments, chunk content editing with diff tracking
-- **Rich Viewing Modes** — Chunks, Markdown (page-synced split view), Tables, Images, AI Review
+- **Rich Viewing Modes** — Chunks, Markdown (page-synced split view), Tables (image + extracted HTML viewer), Images, AI Review
 - **Real-Time Streaming** — SSE-based evaluation progress with per-chunk score updates
 
 ## Architecture
@@ -90,7 +90,8 @@ The application will be available at `http://localhost:8085`.
 3. **Select a view mode** from the sidebar:
    - **Chunks** — chunk the document, view/edit chunks, run LLM evaluation
    - **Markdown** — split view with page-synced scrolling
-   - **Tables** / **Images** — extracted content views
+   - **Tables** — table images with click-to-view extracted HTML tables
+   - **Images** — image gallery with captions
    - **AI Review** — LLM-recommended chunking strategy
 4. **Chunk the document** — select strategy and parameters, click the chunking button. LLM evaluation starts automatically after chunking.
 5. **Review and provide feedback** — use emoji feedback, edit chunks, view AI suggestions
@@ -104,7 +105,8 @@ document_folder/
   metadata.json          # Required: {pdf_title, num_pages, num_images, num_tables}
   *_with_captions.mmd    # Markdown file with extracted content
   *_layouts.pdf          # Layout analysis PDF (for thumbnail generation)
-  images/                # Extracted images
+  images/                # Extracted images (charts, figures, etc.)
+  tables/                # Extracted table images (with HTML tables in .mmd)
 ```
 
 ## Documentation

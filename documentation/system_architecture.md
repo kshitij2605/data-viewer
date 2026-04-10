@@ -86,6 +86,7 @@ Key relationships:
 | GET | /api/documents/{id}/page/{num}/markdown | Single page markdown |
 | GET | /api/documents/{id}/page/{num}/thumbnail | Page thumbnail JPEG |
 | GET | /api/documents/{id}/images/{name} | Document image file |
+| GET | /api/documents/{id}/tables/{name} | Table image file |
 | GET | /api/documents/{id}/layout-pdf | Layout analysis PDF |
 
 #### Views (`backend/api/views.py`)
@@ -93,7 +94,7 @@ Key relationships:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | /api/documents/{id}/text-only | Extracted text paragraphs |
-| GET | /api/documents/{id}/tables-only | Markdown tables with descriptions |
+| GET | /api/documents/{id}/tables-only | Table images, markdown tables, and HTML table map |
 | GET | /api/documents/{id}/images-only | Images with captions and categories |
 
 #### Chunks (`backend/api/chunks.py`)
@@ -105,6 +106,7 @@ Key relationships:
 | GET | /api/documents/{id}/chunks/{cid} | Single chunk detail |
 | PUT | /api/chunks/{cid}/edit | Save edited chunk content |
 | GET | /api/chunks/{cid}/diff | Get original vs modified content |
+| DELETE | /api/documents/{id}/chunks | Delete all chunks for a document |
 | DELETE | /api/chunks/{cid}/edit | Revert chunk edit |
 | GET | /api/documents/{id}/chunk-status | SSE: async chunking progress (semantic strategy) |
 | GET | /api/documents/{id}/evaluate-chunks | SSE: parallel LLM evaluation with streaming results |
@@ -150,7 +152,7 @@ RAG/FAQ scoring and AI suggestion run in parallel per chunk via `asyncio.gather`
 
 #### Other Services
 
-- `backend/services/markdown_parser.py` — Extracts text paragraphs, tables, and image references from the OCR-generated markdown.
+- `backend/services/markdown_parser.py` — Extracts text paragraphs, tables, image references, and table HTML mappings from the OCR-generated markdown. The `extract_table_html_map()` function parses the `![](tables/FILENAME)` + `<table>...</table>` pattern to map table images to their extracted HTML content.
 - `backend/services/embedding.py` — Calls the BGE-M3 embedding endpoint for semantic chunking.
 - `backend/services/pdf_thumbnails.py` — Generates JPEG page thumbnails from layout PDFs using PyMuPDF.
 
@@ -185,7 +187,7 @@ The sidebar offers 5 view modes, each rendering a different main content compone
 |------|-----------|-------------|
 | チャンク (Chunks) | ThumbnailPanel + ChunkTable + ViewerEditor | Primary workspace: page thumbnails, chunk table with scores, and chunk editor in a resizable split layout |
 | Markdown | MarkdownView | Split pane: rendered markdown (left) + auto-synced page thumbnails (right) with resizable divider |
-| テーブル (Tables) | TablesOnlyView | Extracted tables with context descriptions |
+| テーブル (Tables) | TablesOnlyView | Table images from `tables/` folder; click to open modal with image + extracted HTML table |
 | 画像 (Images) | ImagesOnlyView | Image gallery with captions, categorized by type |
 | AIレビュー (AI Review) | AIReviewView | LLM-generated chunking strategy recommendations |
 
@@ -193,7 +195,7 @@ The sidebar offers 5 view modes, each rendering a different main content compone
 
 - **Resizable split panes** — ChunkTable/ViewerEditor vertical split; MarkdownView horizontal split; Sidebar width — all via mouse drag handlers.
 - **SSE streaming** — Chunk evaluation results stream in real-time via EventSource, updating individual cells without refetching the full table.
-- **Image modal with navigation** — Unified modal for page thumbnails and document images with prev/next buttons and directional slide animations (250ms).
+- **Image modal with navigation** — Unified modal for page thumbnails, document images, and table images with prev/next buttons and directional slide animations (250ms). Supports both markdown and raw HTML rendering in the right pane (HTML tables detected automatically).
 - **Page-synced scrolling** — In Markdown view, scrolling the text pane auto-scrolls the thumbnail pane to the corresponding page based on scroll position detection.
 
 ### API Layer

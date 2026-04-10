@@ -96,7 +96,7 @@ const css = {
 } as const;
 
 interface TablesOnlyViewProps {
-  onImageClick?: (src: string, alt: string, pageMarkdown?: string) => void;
+  onImageClick?: (src: string, alt: string, pageMarkdown?: string, pageNum?: number, numPages?: number, imageList?: { src: string; alt: string }[]) => void;
 }
 
 export default function TablesOnlyView({ onImageClick }: TablesOnlyViewProps) {
@@ -123,11 +123,18 @@ export default function TablesOnlyView({ onImageClick }: TablesOnlyViewProps) {
     return <div style={css.loading}>ドキュメントを選択してください。</div>;
   }
 
-  const handleTableImageClick = (img: TableImage) => {
+  // Build image list for navigation
+  const imageList = tableImages.map((img) => ({
+    src: withToken(`/api/documents/${doc.id}/tables/${img.filename}`),
+    alt: img.filename,
+    pageMarkdown: tableHtmlMap[img.filename] || undefined,
+  }));
+
+  const handleTableImageClick = (img: TableImage, index: number) => {
     if (!doc || !onImageClick) return;
     const src = withToken(`/api/documents/${doc.id}/tables/${img.filename}`);
     const html = tableHtmlMap[img.filename];
-    onImageClick(src, img.filename, html || undefined);
+    onImageClick(src, img.filename, html || undefined, index + 1, tableImages.length, imageList);
   };
 
   return (
@@ -154,7 +161,7 @@ export default function TablesOnlyView({ onImageClick }: TablesOnlyViewProps) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: idx * 0.04 }}
-                onClick={() => handleTableImageClick(img)}
+                onClick={() => handleTableImageClick(img, idx)}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-md)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-sm)'; }}
               >
