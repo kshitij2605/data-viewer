@@ -32,6 +32,9 @@ class DocumentOut(BaseModel):
     num_images: int
     num_tables: int
     ai_review_status: Optional[str] = "pending"
+    source_type: Optional[str] = "local"
+    es_index: Optional[str] = None
+    es_parent_doc_id: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -133,21 +136,29 @@ def get_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    work_dir = Path(doc.folder_path)
-
-    # Read metadata.json
     metadata = {}
-    metadata_path = work_dir / "metadata.json"
-    if metadata_path.exists():
-        with open(metadata_path, "r", encoding="utf-8") as f:
-            metadata = json.load(f)
-
-    # Read parsing_metrics.json
     parsing_metrics = {}
-    metrics_path = work_dir / "parsing_metrics.json"
-    if metrics_path.exists():
-        with open(metrics_path, "r", encoding="utf-8") as f:
-            parsing_metrics = json.load(f)
+
+    if doc.source_type == "elasticsearch" and doc.minio_prefix:
+        # Fetch parsing_metrics from MinIO
+        from backend.services.minio_client import fetch_minio_bytes
+        metrics_path = f"{doc.minio_prefix}/metadata/parsing_metrics.json"
+        try:
+            parsing_metrics = json.loads(fetch_minio_bytes(metrics_path))
+        except Exception:
+            pass
+    else:
+        work_dir = Path(doc.folder_path)
+
+        metadata_path = work_dir / "metadata.json"
+        if metadata_path.exists():
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+
+        metrics_path = work_dir / "parsing_metrics.json"
+        if metrics_path.exists():
+            with open(metrics_path, "r", encoding="utf-8") as f:
+                parsing_metrics = json.load(f)
 
     return {
         "id": doc.id,
@@ -157,6 +168,7 @@ def get_document(
         "num_pages": doc.num_pages,
         "num_images": doc.num_images,
         "num_tables": doc.num_tables,
+        "source_type": doc.source_type or "local",
         "metadata": metadata,
         "parsing_metrics": parsing_metrics,
     }
@@ -193,8 +205,23 @@ def _launch_ai_review(doc_id: int, folder_path: str, num_pages: int, num_images:
             if not doc:
                 return
 
-            mmd_file = _find_mmd_file(folder_path)
-            if not mmd_file:
+            # Get markdown content depending on source
+            markdown_content = None
+            if doc.source_type == "elasticsearch" and doc.minio_prefix:
+                from backend.services.minio_client import fetch_minio_text
+                prefix = doc.minio_prefix
+                pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix
+                md_path = f"{prefix}/markdown/{pdf_name}_with_captions.mmd"
+                try:
+                    markdown_content = fetch_minio_text(md_path)
+                except Exception as e:
+                    logger.warning("Could not fetch markdown from MinIO: %s", e)
+            else:
+                mmd_file = _find_mmd_file(folder_path)
+                if mmd_file:
+                    markdown_content = mmd_file.read_text(encoding="utf-8")
+
+            if not markdown_content:
                 doc.ai_review_status = "error"
                 doc.ai_review = "Markdownファイルが見つかりません"
                 bg_db.commit()
@@ -203,7 +230,6 @@ def _launch_ai_review(doc_id: int, folder_path: str, num_pages: int, num_images:
             doc.ai_review_status = "running"
             bg_db.commit()
 
-            markdown_content = mmd_file.read_text(encoding="utf-8")
             review = await evaluate_chunking_strategy(markdown_content, num_pages, num_images, num_tables, doc_title=doc.pdf_title or doc.folder_name)
 
             doc.ai_review = review

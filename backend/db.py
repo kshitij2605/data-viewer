@@ -46,4 +46,12 @@ def init_db():
             conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN ai_review TEXT"))
         if "ai_review_status" not in doc_cols:
             conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN ai_review_status TEXT DEFAULT 'pending'"))
+        if "source_type" not in doc_cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN source_type TEXT DEFAULT 'local'"))
+        if "es_index" not in doc_cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN es_index TEXT"))
+        if "es_parent_doc_id" not in doc_cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN es_parent_doc_id TEXT"))
+        if "minio_prefix" not in doc_cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN minio_prefix TEXT"))
         conn.commit()

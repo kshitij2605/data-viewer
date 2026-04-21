@@ -31,6 +31,10 @@ class Document(Base):
     num_tables = Column(Integer, default=0)
     ai_review = Column(Text, nullable=True)
     ai_review_status = Column(Text, default="pending")  # pending, running, done, error
+    source_type = Column(Text, default="local")  # "local" or "elasticsearch"
+    es_index = Column(Text, nullable=True)
+    es_parent_doc_id = Column(Text, nullable=True)
+    minio_prefix = Column(Text, nullable=True)  # e.g. "index_name/pdf_name"
     loaded_at = Column(TIMESTAMP, server_default=func.now())
     loaded_by_user_id = Column(Integer, ForeignKey("users.id"))
 

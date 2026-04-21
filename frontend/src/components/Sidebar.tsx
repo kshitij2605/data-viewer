@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentStore } from '../stores/documentStore.ts';
-import FolderLoadDialog from './FolderLoadDialog.tsx';
+import ESImportDialog from './ESImportDialog.tsx';
 
 type ViewMode = 'chunks' | 'markdown' | 'text' | 'tables' | 'images' | 'ai_review';
 
@@ -409,7 +409,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, wi
         )}
       </aside>
 
-      <FolderLoadDialog
+      <ESImportDialog
         open={folderDialogOpen}
         onClose={() => setFolderDialogOpen(false)}
       />

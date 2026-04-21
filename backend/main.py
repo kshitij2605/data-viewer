@@ -31,6 +31,7 @@ from backend.api.views import router as views_router  # noqa: E402
 from backend.api.chunks import router as chunks_router  # noqa: E402
 from backend.api.feedback import router as feedback_router  # noqa: E402
 from backend.api.filesystem import router as filesystem_router  # noqa: E402
+from backend.api.es_documents import router as es_documents_router  # noqa: E402
 
 app.include_router(auth_router)
 app.include_router(documents_router)
@@ -39,6 +40,7 @@ app.include_router(views_router)
 app.include_router(chunks_router)
 app.include_router(feedback_router)
 app.include_router(filesystem_router)
+app.include_router(es_documents_router)
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse

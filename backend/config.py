@@ -10,6 +10,19 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-m3"
     thumbnail_dir: str = "data/thumbnails"
 
+    # Elasticsearch
+    es_url: str = ""
+    es_user: str = "__REDACTED_ES_USER__"
+    es_password: str = ""
+    es_verify_certs: bool = False
+
+    # MinIO
+    minio_endpoint: str = ""
+    minio_access_key: str = ""
+    minio_secret_key: str = ""
+    minio_bucket: str = "rag-anything"
+    minio_secure: bool = False
+
     class Config:
         env_file = ".env"
 

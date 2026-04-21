@@ -147,11 +147,21 @@ def chunk_document_endpoint(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    mmd_file = _find_mmd_file(document.folder_path)
-    if not mmd_file:
-        raise HTTPException(status_code=400, detail="Markdown file not found")
-
-    markdown_content = mmd_file.read_text(encoding="utf-8")
+    # Get markdown content from local FS or MinIO
+    if document.source_type == "elasticsearch" and document.minio_prefix:
+        from backend.services.minio_client import fetch_minio_text
+        prefix = document.minio_prefix
+        pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix
+        md_path = f"{prefix}/markdown/{pdf_name}_with_captions.mmd"
+        try:
+            markdown_content = fetch_minio_text(md_path)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Markdown file not found in MinIO")
+    else:
+        mmd_file = _find_mmd_file(document.folder_path)
+        if not mmd_file:
+            raise HTTPException(status_code=400, detail="Markdown file not found")
+        markdown_content = mmd_file.read_text(encoding="utf-8")
 
     strategy = body.strategy.lower()
 
@@ -502,7 +512,30 @@ async def evaluate_chunks_sse(
 
         async def eval_one(info: dict):
             """Evaluate a single chunk and put result in queue."""
-            thumb_path = str(get_thumbnail_path(document_id, info["page_number"]))
+            # Get thumbnail path: local file or MinIO temp download
+            if doc.source_type == "elasticsearch" and doc.minio_prefix:
+                import tempfile
+                from backend.services.minio_client import fetch_minio_bytes
+                prefix = doc.minio_prefix
+                pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix
+                thumb_path = None
+                for candidate in [
+                    f"{prefix}/pages/{pdf_name}_{info['page_number']}.png",
+                    f"{prefix}/pages/page_{info['page_number']}.png",
+                ]:
+                    try:
+                        data = fetch_minio_bytes(candidate)
+                        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                        tmp.write(data)
+                        tmp.close()
+                        thumb_path = tmp.name
+                        break
+                    except Exception:
+                        continue
+                if not thumb_path:
+                    thumb_path = ""
+            else:
+                thumb_path = str(get_thumbnail_path(document_id, info["page_number"]))
             try:
                 result = await evaluate_chunk_all(info["content"], thumb_path)
                 await result_queue.put({"chunk_id": info["id"], **result, "error": None})

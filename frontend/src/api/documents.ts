@@ -9,6 +9,9 @@ export interface Document {
   num_images: number;
   num_tables: number;
   ai_review_status?: string;
+  source_type?: string;
+  es_index?: string;
+  es_parent_doc_id?: string;
 }
 
 export interface AIReview {
@@ -110,4 +113,55 @@ export async function getAIReview(id: number): Promise<AIReview> {
 
 export async function retryAIReview(id: number): Promise<void> {
   await client.post(`/documents/${id}/ai-review/retry`);
+}
+
+// ---------------------------------------------------------------------------
+// Elasticsearch integration
+// ---------------------------------------------------------------------------
+
+export interface ESIndex {
+  index_name: string;
+  doc_count: number;
+}
+
+export interface ESDocument {
+  parent_doc_id: string;
+  filename: string;
+  chunk_count: number;
+  num_pages: number;
+  index_name: string;
+  already_imported: boolean;
+}
+
+export interface ImportResult {
+  id: number;
+  folder_name: string;
+  pdf_title: string | null;
+  num_pages: number;
+  num_images: number;
+  num_tables: number;
+  chunks_imported: number;
+}
+
+export async function listESIndices(): Promise<ESIndex[]> {
+  const res = await client.get<ESIndex[]>('/es/indices');
+  return res.data;
+}
+
+export async function listESDocuments(index: string): Promise<ESDocument[]> {
+  const res = await client.get<ESDocument[]>('/es/documents', { params: { index } });
+  return res.data;
+}
+
+export async function importESDocument(parentDocId: string, index: string): Promise<ImportResult> {
+  const res = await client.post<ImportResult>(
+    `/es/documents/${encodeURIComponent(parentDocId)}/import`,
+    null,
+    { params: { index } },
+  );
+  return res.data;
+}
+
+export async function refreshFromES(documentId: number): Promise<void> {
+  await client.post(`/es/documents/${documentId}/refresh`);
 }
