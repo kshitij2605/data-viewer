@@ -95,7 +95,7 @@ def list_es_documents(
         "aggs": {
             "docs": {
                 "terms": {
-                    "field": "parent_doc_id",
+                    "field": "parent_doc_id.keyword",
                     "size": 10000,
                 },
                 "aggs": {
@@ -354,7 +354,7 @@ def _fetch_all_chunks(es, index: str, parent_doc_id: str) -> list:
     """Fetch all chunks for a document from ES using search_after."""
     all_hits = []
     body = {
-        "query": {"term": {"parent_doc_id": parent_doc_id}},
+        "query": {"term": {"parent_doc_id.keyword": parent_doc_id}},
         "sort": [{"chunk_id": "asc"}],
         "size": 500,
     }
