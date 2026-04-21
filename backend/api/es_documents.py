@@ -244,6 +244,7 @@ def import_es_document(
         es_index=index,
         es_parent_doc_id=parent_doc_id,
         minio_prefix=minio_prefix,
+        layout_pdf_path=minio_meta.get("layout_pdf_path"),
         loaded_by_user_id=current_user.id,
     )
     db.add(doc)

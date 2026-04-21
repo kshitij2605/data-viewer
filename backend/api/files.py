@@ -191,7 +191,8 @@ def get_page_thumbnail(
         from backend.services.minio_client import fetch_minio_bytes
         prefix = doc.minio_prefix
         pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix
-        # Try the naming pattern used by rag_anything: {pdf_name}_{page_num}.png
+
+        # 1. Try pre-existing page thumbnail (backward compat for existing data)
         for candidate in [
             f"{prefix}/pages/{pdf_name}_{page_num}.png",
             f"{prefix}/pages/page_{page_num}.png",
@@ -201,6 +202,36 @@ def get_page_thumbnail(
                 return Response(content=data, media_type="image/png")
             except Exception:
                 continue
+
+        # 2. Render from layout PDF stored in MinIO
+        layout_path = doc.layout_pdf_path
+        if not layout_path:
+            layout_path = f"{prefix}/layout/{pdf_name}_layouts.pdf"
+
+        try:
+            import fitz  # PyMuPDF
+            pdf_data = fetch_minio_bytes(layout_path)
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                tmp.write(pdf_data)
+                tmp_path = tmp.name
+
+            try:
+                layout_doc = fitz.open(tmp_path)
+                page_idx = max(0, min(page_num - 1, len(layout_doc) - 1))
+                page = layout_doc[page_idx]
+                # Render at 150 DPI
+                mat = fitz.Matrix(150 / 72, 150 / 72)
+                pix = page.get_pixmap(matrix=mat)
+                png_data = pix.tobytes("png")
+                layout_doc.close()
+                return Response(content=png_data, media_type="image/png")
+            finally:
+                import os
+                os.unlink(tmp_path)
+        except Exception:
+            pass
+
         raise HTTPException(status_code=404, detail="Thumbnail not found in MinIO")
 
     _get_doc(document_id, db)  # validate existence
