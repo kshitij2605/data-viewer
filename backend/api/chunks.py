@@ -62,13 +62,24 @@ def _read_metadata_images(folder_path: str) -> list:
     return []
 
 
+def _get_image_filenames(document: Document) -> list:
+    """Return sorted list of image filenames for a document, from FS or MinIO."""
+    if document.source_type == "elasticsearch" and document.minio_prefix:
+        from backend.services.minio_client import list_minio_objects
+        prefix = document.minio_prefix
+        objects = list_minio_objects(f"{prefix}/images/")
+        return sorted(obj.rsplit("/", 1)[-1] for obj in objects)
+    else:
+        return _read_metadata_images(document.folder_path)
+
+
 def _store_chunks(db: Session, document: Document, chunk_dicts: list, body: ChunkRequest):
     """Delete old chunks and store new ones with chunk_images."""
     # Delete existing chunks (CASCADE handles edits/feedback/images)
     db.query(Chunk).filter(Chunk.document_id == document.id).delete()
     db.flush()
 
-    image_files = _read_metadata_images(document.folder_path)
+    image_files = _get_image_filenames(document)
 
     for cd in chunk_dicts:
         chunk = Chunk(
@@ -192,7 +203,7 @@ def chunk_document_endpoint(
                 bg_db.query(Chunk).filter(Chunk.document_id == document_id).delete()
                 bg_db.flush()
 
-                image_files = _read_metadata_images(doc.folder_path)
+                image_files = _get_image_filenames(doc)
                 for i, cd in enumerate(chunk_dicts):
                     chunk = Chunk(
                         document_id=doc.id,
