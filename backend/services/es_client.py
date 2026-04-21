@@ -7,9 +7,11 @@ _es_client: Elasticsearch | None = None
 
 
 def get_es_client() -> Elasticsearch:
-    """Get or create a cached Elasticsearch client."""
+    """Get or create a cached Elasticsearch client. Validates URL on first call."""
     global _es_client
     if _es_client is None:
+        if not settings.es_url:
+            raise RuntimeError("ES_URL is not configured")
         _es_client = Elasticsearch(
             settings.es_url,
             basic_auth=(settings.es_user, settings.es_password),

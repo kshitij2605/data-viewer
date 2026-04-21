@@ -537,7 +537,8 @@ async def evaluate_chunks_sse(
             else:
                 thumb_path = str(get_thumbnail_path(document_id, info["page_number"]))
             try:
-                result = await evaluate_chunk_all(info["content"], thumb_path)
+                async with semaphore:
+                    result = await evaluate_chunk_all(info["content"], thumb_path)
                 await result_queue.put({"chunk_id": info["id"], **result, "error": None})
             except Exception as e:
                 logger.error("Eval failed for chunk %d: %s", info["id"], e)
@@ -546,6 +547,9 @@ async def evaluate_chunks_sse(
                     "rag_score": None, "faq_score": None, "ai_suggestion": None,
                     "error": str(e),
                 })
+
+        # Limit concurrent LLM calls to avoid overwhelming the server
+        semaphore = asyncio.Semaphore(5)
 
         # Launch all chunk evaluations concurrently
         tasks = [asyncio.create_task(eval_one(info)) for info in chunk_info]

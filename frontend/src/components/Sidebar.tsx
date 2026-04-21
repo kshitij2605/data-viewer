@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentStore } from '../stores/documentStore.ts';
+import * as docApi from '../api/documents.ts';
 import ESImportDialog from './ESImportDialog.tsx';
 
 type ViewMode = 'chunks' | 'markdown' | 'text' | 'tables' | 'images' | 'ai_review';
@@ -308,6 +309,48 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, wi
                           {doc.pdf_title || doc.folder_name}
                         </span>
                         <span style={css.pageCount}>{doc.num_pages}p</span>
+                        {doc.source_type === 'elasticsearch' && (
+                          <span style={{
+                            fontSize: '10px',
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: 600,
+                            padding: '2px 5px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'rgba(59,130,246,0.15)',
+                            color: '#3b82f6',
+                            flexShrink: 0,
+                          }}>
+                            ES
+                          </span>
+                        )}
+                        {doc.source_type === 'elasticsearch' && (
+                          <button
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--color-sidebar-text)',
+                              cursor: 'pointer',
+                              padding: '0 4px',
+                              fontSize: '11px',
+                              opacity: 0.4,
+                              flexShrink: 0,
+                              lineHeight: 1,
+                              transition: 'all var(--transition-fast)',
+                            }}
+                            title="ESから再取得"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm(`「${doc.pdf_title || doc.folder_name}」のチャンクをESから再取得しますか？`)) {
+                                await docApi.refreshFromES(doc.id);
+                                loadDocuments();
+                              }
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--color-primary)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.color = 'var(--color-sidebar-text)'; }}
+                          >
+                            &#x21bb;
+                          </button>
+                        )}
                         <button
                           style={{
                             background: 'none',

@@ -50,7 +50,7 @@ class Chunk(Base):
     chunk_index = Column(Integer, nullable=False)
     page_number = Column(Integer, default=1)
     content = Column(Text, nullable=False)
-    chunking_strategy = Column(Text, nullable=False)
+    chunking_strategy = Column(Text, nullable=False, default="unknown")
     chunk_size_setting = Column(Integer, default=2000)
     chunk_overlap_setting = Column(Integer, default=200)
     similarity_threshold = Column(Float)
