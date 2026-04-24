@@ -56,4 +56,6 @@ def init_db():
             conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN minio_prefix TEXT"))
         if "layout_pdf_path" not in doc_cols:
             conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN layout_pdf_path TEXT"))
+        if "chunking_strategy" not in doc_cols:
+            conn.execute(__import__('sqlalchemy').text("ALTER TABLE documents ADD COLUMN chunking_strategy TEXT"))
         conn.commit()

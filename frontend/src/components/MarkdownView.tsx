@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useDocumentStore } from '../stores/documentStore.ts';
@@ -270,7 +270,7 @@ export default function MarkdownView({ onImageClick }: MarkdownViewProps) {
         <div style={css.rightLabel}>PDF ページ</div>
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {pages.map((p) => {
-            const src = withToken(`/api/documents/${doc.id}/page/${p}/thumbnail`);
+            const src = withToken(`/api/documents/${doc.id}/layout-thumbnail/${p}`);
             const isActive = p === activePage;
             return (
               <div

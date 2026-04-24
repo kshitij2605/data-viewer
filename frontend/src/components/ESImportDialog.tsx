@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as docApi from '../api/documents.ts';
 import type { ESIndex, ESDocument } from '../api/documents.ts';
@@ -48,17 +48,69 @@ const css = {
     fontWeight: 600,
     whiteSpace: 'nowrap' as const,
   },
-  select: {
+  // Custom dropdown styles
+  dropdownWrapper: {
+    position: 'relative' as const,
     flex: 1,
-    padding: '8px 12px',
+    minWidth: 0,
+  },
+  dropdownButton: {
+    width: '100%',
+    padding: '8px 32px 8px 10px',
     border: '1.5px solid var(--color-border)',
     borderRadius: 'var(--radius-sm)',
-    fontSize: '13px',
+    fontSize: '12px',
     fontFamily: 'var(--font-mono)',
     outline: 'none',
     background: 'var(--color-bg)',
     color: 'var(--color-text)',
     cursor: 'pointer',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    textAlign: 'left' as const,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  dropdownChevron: {
+    position: 'absolute' as const,
+    right: '10px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    pointerEvents: 'none' as const,
+    color: 'var(--color-text-muted)',
+    fontSize: '10px',
+  },
+  dropdownMenu: {
+    position: 'absolute' as const,
+    top: 'calc(100% + 4px)',
+    left: 0,
+    right: 0,
+    background: 'var(--color-surface)',
+    border: '1.5px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    boxShadow: 'var(--shadow-lg)',
+    zIndex: 2000,
+    maxHeight: '220px',
+    overflowY: 'auto' as const,
+  },
+  dropdownItem: {
+    padding: '8px 12px',
+    fontSize: '12px',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--color-text)',
+    cursor: 'pointer',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+    transition: 'background 80ms ease',
+  },
+  dropdownItemCount: {
+    color: 'var(--color-text-muted)',
+    fontSize: '10px',
+    marginLeft: '6px',
+    flexShrink: 0,
   },
   selectAllRow: {
     display: 'flex',
@@ -210,6 +262,8 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { loadDocuments, setDocument } = useDocumentStore();
 
   // Load indices when dialog opens
@@ -217,6 +271,7 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
     if (!open) return;
     setLoadingIndices(true);
     setError('');
+    setDropdownOpen(false);
     docApi.listESIndices()
       .then((data) => {
         setIndices(data);
@@ -227,6 +282,18 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
       .catch(() => setError('Elasticsearchインデックスの取得に失敗しました'))
       .finally(() => setLoadingIndices(false));
   }, [open]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dropdownOpen]);
 
   // Load documents when index changes
   useEffect(() => {
@@ -323,19 +390,51 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
             {/* Index selector */}
             <div style={css.indexRow}>
               <span style={css.label}>インデックス:</span>
-              <select
-                style={css.select}
-                value={selectedIndex}
-                onChange={(e) => setSelectedIndex(e.target.value)}
-                disabled={loadingIndices}
-              >
-                {loadingIndices && <option>読み込み中...</option>}
-                {indices.map((idx) => (
-                  <option key={idx.index_name} value={idx.index_name}>
-                    {idx.index_name} ({idx.doc_count.toLocaleString()} chunks)
-                  </option>
-                ))}
-              </select>
+              <div style={css.dropdownWrapper} ref={dropdownRef}>
+                <button
+                  type="button"
+                  style={css.dropdownButton}
+                  onClick={() => !loadingIndices && setDropdownOpen((v) => !v)}
+                  disabled={loadingIndices}
+                  title={selectedIndex}
+                >
+                  {loadingIndices
+                    ? '読み込み中...'
+                    : (indices.find((i) => i.index_name === selectedIndex)?.index_name || '選択...')}
+                </button>
+                <span style={css.dropdownChevron}>{dropdownOpen ? '▲' : '▼'}</span>
+                <AnimatePresence>
+                  {dropdownOpen && (
+                    <motion.div
+                      style={css.dropdownMenu}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.12 }}
+                    >
+                      {indices.map((idx) => (
+                        <div
+                          key={idx.index_name}
+                          style={{
+                            ...css.dropdownItem,
+                            background: idx.index_name === selectedIndex ? 'var(--color-primary-ghost)' : 'transparent',
+                          }}
+                          onClick={() => {
+                            setSelectedIndex(idx.index_name);
+                            setDropdownOpen(false);
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--color-surface-raised)'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = idx.index_name === selectedIndex ? 'var(--color-primary-ghost)' : 'transparent'; }}
+                          title={idx.index_name}
+                        >
+                          {idx.index_name}
+                          <span style={css.dropdownItemCount}>({idx.doc_count.toLocaleString()})</span>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             {error && <div style={css.errorBox}>{error}</div>}

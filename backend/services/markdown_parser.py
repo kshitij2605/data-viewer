@@ -112,12 +112,22 @@ def extract_images_with_captions(markdown: str) -> List[Dict]:
 
 
 def extract_table_html_map(markdown: str) -> Dict[str, str]:
-    """Map table image filenames to their associated HTML <table> content.
+    """Map table image filenames to their associated table content.
 
-    Pattern in .mmd files:
-        ![](tables/11_10.jpg)
+    Handles two patterns in .mmd files:
+        Pattern 1 (HTML tables):
+            ![](tables/11_10.jpg)
 
-        <table>...</table>
+            <table>...</table>
+
+        Pattern 2 (markdown tables, used by rag_anything):
+            Some caption or description
+
+            ![](tables/filename.jpg)
+
+            | Column 1 | Column 2 |
+            |----------|----------|
+            | cell 1   | cell 2   |
     """
     mapping: Dict[str, str] = {}
     lines = markdown.split("\n")
@@ -128,19 +138,41 @@ def extract_table_html_map(markdown: str) -> Dict[str, str]:
         m = re.match(r"^!\[.*?\]\(tables/([^)]+)\)\s*$", stripped)
         if m:
             filename = m.group(1)
-            # Look ahead past blank lines for <table> content
+            table_lines: List[str] = []
+
+            # Look back for description/caption text (non-empty, non-table, non-separator line)
+            description = ""
+            for j in range(i - 1, max(i - 5, -1), -1):
+                prev = lines[j].strip()
+                if prev and not prev.startswith("|") and prev != "---" and not prev.startswith("![") and not prev.startswith("<table"):
+                    description = prev.lstrip("#").strip()
+                    break
+
+            # Look ahead past blank lines for table content (HTML or markdown)
             j = i + 1
             while j < len(lines) and lines[j].strip() == "":
                 j += 1
-            if j < len(lines) and lines[j].strip().startswith("<table"):
-                # Collect all lines that are part of this table block
-                table_lines: List[str] = []
-                while j < len(lines) and lines[j].strip():
-                    table_lines.append(lines[j])
-                    if "</table>" in lines[j]:
-                        break
-                    j += 1
-                mapping[filename] = "\n".join(table_lines)
+
+            if j < len(lines):
+                if lines[j].strip().startswith("<table"):
+                    # Collect HTML table block
+                    while j < len(lines) and lines[j].strip():
+                        table_lines.append(lines[j])
+                        if "</table>" in lines[j]:
+                            break
+                        j += 1
+                    mapping[filename] = "\n".join(table_lines)
+                elif lines[j].strip().startswith("|"):
+                    # Collect markdown table lines
+                    while j < len(lines) and lines[j].strip().startswith("|"):
+                        table_lines.append(lines[j].strip())
+                        j += 1
+                    # Build a description with the preceding text + the table
+                    table_content = "\n".join(table_lines)
+                    if description:
+                        mapping[filename] = f"{description}\n{table_content}"
+                    else:
+                        mapping[filename] = table_content
         i += 1
     return mapping
 

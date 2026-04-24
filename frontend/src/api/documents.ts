@@ -12,6 +12,7 @@ export interface Document {
   source_type?: string;
   es_index?: string;
   es_parent_doc_id?: string;
+  chunking_strategy?: string | null;
 }
 
 export interface AIReview {

@@ -166,7 +166,7 @@ export default function ImageModal({ open, src, alt, pageMarkdown, pageNum, numP
   const dragStart = useRef({ x: 0, y: 0 });
   const posStart = useRef({ x: 0, y: 0 });
   const slideDirRef = useRef(0);
-  const [slideDir, setSlideDir] = useState(0);
+  const [, setSlideDir] = useState(0);
 
   const goToPage = useCallback((page: number) => {
     if (!onPageChange || !pageNum) return;
@@ -274,9 +274,9 @@ export default function ImageModal({ open, src, alt, pageMarkdown, pageNum, numP
                   src={src}
                   alt={alt || ''}
                   style={css.image}
-                  initial={(dir: number) => isPageMode ? { x: dir * 300, opacity: 0 } : false}
+                  initial={((dir: number) => isPageMode ? { x: dir * 300, opacity: 0 } : { opacity: 0 }) as any}
                   animate={{ x: 0, opacity: 1, scale, translateX: position.x / scale, translateY: position.y / scale }}
-                  exit={(dir: number) => isPageMode ? { x: dir * -300, opacity: 0 } : { opacity: 0 }}
+                  exit={((dir: number) => isPageMode ? { x: dir * -300, opacity: 0 } : { opacity: 0 }) as any}
                   transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                   draggable={false}
                 />
@@ -324,9 +324,9 @@ export default function ImageModal({ open, src, alt, pageMarkdown, pageNum, numP
                 <motion.div
                   key={`caption-${pageNum || alt}`}
                   custom={slideDirRef.current}
-                  initial={(dir: number) => isPageMode ? { y: dir * 40, opacity: 0 } : false}
+                  initial={((dir: number) => isPageMode ? { y: dir * 40, opacity: 0 } : { opacity: 0 }) as any}
                   animate={{ y: 0, opacity: 1 }}
-                  exit={(dir: number) => isPageMode ? { y: dir * -40, opacity: 0 } : { opacity: 0 }}
+                  exit={((dir: number) => isPageMode ? { y: dir * -40, opacity: 0 } : { opacity: 0 }) as any}
                   transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                 >
                   {pageMarkdown ? (

@@ -36,6 +36,7 @@ class Document(Base):
     es_parent_doc_id = Column(Text, nullable=True)
     minio_prefix = Column(Text, nullable=True)  # e.g. "index_name/pdf_name"
     layout_pdf_path = Column(Text, nullable=True)  # MinIO path to layout PDF for page thumbnails
+    chunking_strategy = Column(Text, nullable=True)  # chunking strategy used in ES (e.g. "recursive", "page")
     loaded_at = Column(TIMESTAMP, server_default=func.now())
     loaded_by_user_id = Column(Integer, ForeignKey("users.id"))
 

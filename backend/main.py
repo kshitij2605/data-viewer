@@ -50,6 +50,10 @@ frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
     app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="assets")
 
+    @app.get("/")
+    async def serve_index():
+        return FileResponse(frontend_dist / "index.html")
+
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
         # Never intercept API routes — let them 404 naturally

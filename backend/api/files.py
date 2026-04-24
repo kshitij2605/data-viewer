@@ -192,7 +192,7 @@ def get_page_thumbnail(
         prefix = doc.minio_prefix
         pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix
 
-        # 1. Try pre-existing page thumbnail (backward compat for existing data)
+        # 1. Try original page thumbnails (pages/) — for ページ section in chunk view
         for candidate in [
             f"{prefix}/pages/{pdf_name}_{page_num}.png",
             f"{prefix}/pages/page_{page_num}.png",
@@ -203,7 +203,17 @@ def get_page_thumbnail(
             except Exception:
                 continue
 
-        # 2. Render from layout PDF stored in MinIO
+        # 2. Fallback: layout page thumbnails (layout_pages/) — for markdown view
+        for candidate in [
+            f"{prefix}/layout_pages/{pdf_name}_{page_num}.png",
+        ]:
+            try:
+                data = fetch_minio_bytes(candidate)
+                return Response(content=data, media_type="image/png")
+            except Exception:
+                continue
+
+        # 3. Render from layout PDF stored in MinIO (for older imports without pre-rendered thumbnails)
         layout_path = doc.layout_pdf_path
         if not layout_path:
             layout_path = f"{prefix}/layout/{pdf_name}_layouts.pdf"
@@ -239,6 +249,47 @@ def get_page_thumbnail(
     if not thumb_path.exists():
         raise HTTPException(status_code=404, detail="Thumbnail not found")
     return FileResponse(str(thumb_path), media_type="image/jpeg")
+
+
+@router.get("/{document_id}/layout-thumbnail/{page_num}")
+def get_layout_thumbnail(
+    document_id: int,
+    page_num: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the layout PDF page thumbnail for a document (for markdown view)."""
+    doc = _get_doc(document_id, db)
+
+    if _is_minio(doc):
+        from backend.services.minio_client import fetch_minio_bytes
+        prefix = doc.minio_prefix
+        pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix
+
+        # 1. Try layout_pages/ path (new structure)
+        for candidate in [
+            f"{prefix}/layout_pages/{pdf_name}_{page_num}.png",
+        ]:
+            try:
+                data = fetch_minio_bytes(candidate)
+                return Response(content=data, media_type="image/png")
+            except Exception:
+                continue
+
+        # 2. Fallback: try pages/ path (backward compat)
+        for candidate in [
+            f"{prefix}/pages/{pdf_name}_{page_num}.png",
+            f"{prefix}/pages/page_{page_num}.png",
+        ]:
+            try:
+                data = fetch_minio_bytes(candidate)
+                return Response(content=data, media_type="image/png")
+            except Exception:
+                continue
+
+        raise HTTPException(status_code=404, detail="Layout thumbnail not found in MinIO")
+
+    raise HTTPException(status_code=404, detail="Layout thumbnails only available for ES documents")
 
 
 # ---------------------------------------------------------------------------

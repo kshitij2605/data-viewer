@@ -331,6 +331,15 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
   // Which strategies support chunk_size/overlap params
   const showSizeParams = ['character', 'recursive', 'markdown', 'semantic'].includes(strategy);
 
+  // Pre-select strategy from ES metadata when doc changes
+  const esStrategy = doc?.chunking_strategy;
+  useEffect(() => {
+    if (esStrategy) setStrategy(esStrategy);
+  }, [esStrategy]);
+
+  // Disable chunk button when strategy matches ES-chunked strategy
+  const isStrategyUnchanged = !!(esStrategy && strategy === esStrategy);
+
   const docId = doc?.id;
 
   useEffect(() => {
@@ -444,11 +453,15 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
           </>
         )}
         <button
-          style={{ ...css.chunkBtn, opacity: !docId || isChunking || isEvaluating ? 0.6 : 1 }}
+          style={{
+            ...css.chunkBtn,
+            opacity: !docId || isChunking || isEvaluating || isStrategyUnchanged ? 0.45 : 1,
+            cursor: isStrategyUnchanged ? 'not-allowed' : (isChunking || isEvaluating ? 'wait' : 'pointer'),
+          }}
           onClick={handleChunk}
-          disabled={!docId || isChunking || isEvaluating}
+          disabled={!docId || isChunking || isEvaluating || isStrategyUnchanged}
         >
-          {isChunking ? '処理中...' : isEvaluating ? `評価中 ${evalProgress.completed}/${evalProgress.total}` : 'チャンク実行'}
+          {isChunking ? '処理中...' : isEvaluating ? `評価中 ${evalProgress.completed}/${evalProgress.total}` : isStrategyUnchanged ? '評価済み' : 'チャンク実行'}
         </button>
         {chunks.length > 0 && docId && (
           <button

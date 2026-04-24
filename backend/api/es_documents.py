@@ -192,6 +192,10 @@ def import_es_document(
     metadata = first_source.get("metadata", {})
     minio_meta = metadata.get("minio_metadata", {})
     filename = metadata.get("filename", parent_doc_id)
+    # Extract chunking strategy from ES metadata (set by rag_anything pipeline)
+    es_chunking_strategy = metadata.get("chunking_strategy", None)
+    es_chunk_size = metadata.get("chunk_size", None)
+    es_chunk_overlap = metadata.get("chunk_overlap", None)
 
     # Derive minio_prefix from minio paths
     minio_prefix = _derive_minio_prefix(minio_meta, index, filename)
@@ -245,6 +249,7 @@ def import_es_document(
         es_parent_doc_id=parent_doc_id,
         minio_prefix=minio_prefix,
         layout_pdf_path=minio_meta.get("layout_pdf_path"),
+        chunking_strategy=es_chunking_strategy,
         loaded_by_user_id=current_user.id,
     )
     db.add(doc)
@@ -317,6 +322,7 @@ def refresh_from_es(
 
     metadata = chunks_data[0]["_source"].get("metadata", {})
     chunking_strategy = metadata.get("chunking_strategy", "unknown")
+    doc.chunking_strategy = chunking_strategy
 
     for chunk_hit in chunks_data:
         src = chunk_hit["_source"]

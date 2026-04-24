@@ -218,9 +218,7 @@ export default function ThumbnailPanel({ onImageClick }: ThumbnailPanelProps) {
   // Scale factor: thumbnails grow proportionally with panel height
   const contentHeight = panelHeight - 32;
   const scaleFactor = Math.max(0.6, contentHeight / (DEFAULT_HEIGHT - 32));
-  const mainThumbW = Math.round((isPortrait ? 110 : 200) * scaleFactor);
-  const mainThumbH = Math.round((isPortrait ? 160 : 140) * scaleFactor);
-  const miniW = Math.round((isPortrait ? 50 : 80) * scaleFactor);
+    const miniW = Math.round((isPortrait ? 50 : 80) * scaleFactor);
   const miniH = Math.round((isPortrait ? 70 : 60) * scaleFactor);
   const carouselBtnH = Math.round((isPortrait ? 70 : 60) * scaleFactor);
 

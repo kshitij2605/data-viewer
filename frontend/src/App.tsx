@@ -20,6 +20,8 @@ import AIReviewView from './components/AIReviewView.tsx';
 import PdfViewer from './components/PdfViewer.tsx';
 import { getPageMarkdown } from './api/documents.ts';
 import { withToken } from './api/client.ts';
+import { subscribeEvaluation } from './api/chunks.ts';
+import type { EvalResult } from './api/chunks.ts';
 
 const layoutCss = {
   shell: {
@@ -73,6 +75,36 @@ function App() {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // Auto-trigger RAG/FAQ evaluation when an ES-imported document is selected
+  const updateChunkEval = useChunkStore((s) => s.updateChunkEval);
+  const fetchChunks = useChunkStore((s) => s.fetchChunks);
+  const evalEsRef = useRef<EventSource | null>(null);
+  const evalDocIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!selectedDoc || selectedDoc.source_type !== 'elasticsearch') return;
+    const docId = selectedDoc.id;
+    evalDocIdRef.current = docId;
+    if (evalEsRef.current) { evalEsRef.current.close(); evalEsRef.current = null; }
+    fetchChunks(docId).then(() => {
+      if (evalDocIdRef.current !== docId) return; // doc changed while loading
+      const es = subscribeEvaluation(docId, (data: EvalResult) => {
+        if (data.type === 'result' && data.chunk_id != null) {
+          updateChunkEval(data.chunk_id, {
+            rag_score: data.rag_score ?? null,
+            faq_score: data.faq_score ?? null,
+            ai_suggestion: data.ai_suggestion ?? null,
+          });
+        } else if (data.type === 'done') {
+          es.close();
+          if (evalDocIdRef.current === docId) evalEsRef.current = null;
+        }
+      });
+      es.onerror = () => { es.close(); if (evalDocIdRef.current === docId) evalEsRef.current = null; };
+      evalEsRef.current = es;
+    });
+    return () => { if (evalEsRef.current) { evalEsRef.current.close(); evalEsRef.current = null; } evalDocIdRef.current = null; };
+  }, [selectedDoc?.id, selectedDoc?.source_type]);
 
   const handleImageClick = useCallback((src: string, alt: string, pageMarkdown?: string, pageNum?: number, numPages?: number, imageList?: { src: string; alt: string; pageMarkdown?: string }[]) => {
     imageListRef.current = imageList || [];
