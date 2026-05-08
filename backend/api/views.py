@@ -76,9 +76,15 @@ def get_tables_only(
     if _is_minio(doc):
         from backend.services.minio_client import list_minio_objects
         prefix = doc.minio_prefix
+        pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix
         objects = list_minio_objects(f"{prefix}/tables/")
         for obj_name in sorted(objects):
-            filename = obj_name.rsplit("/", 1)[-1]
+            full_filename = obj_name.rsplit("/", 1)[-1]
+            # Strip pdf_name prefix to match table_html_map keys (which use markdown refs without prefix)
+            if full_filename.startswith(pdf_name + "_"):
+                filename = full_filename[len(pdf_name) + 1:]
+            else:
+                filename = full_filename
             match = re.match(r"(?:.*_)?(\d+)[_]", filename)
             page_num = int(match.group(1)) if match else None
             table_images.append({"filename": filename, "page_number": page_num})

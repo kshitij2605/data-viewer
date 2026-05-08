@@ -156,7 +156,7 @@ def list_es_documents(
 # ---------------------------------------------------------------------------
 
 @router.post("/documents/{parent_doc_id}/import", response_model=ImportResult)
-def import_es_document(
+async def import_es_document(
     parent_doc_id: str,
     index: str = Query(..., description="ES index name"),
     db: Session = Depends(get_db),
