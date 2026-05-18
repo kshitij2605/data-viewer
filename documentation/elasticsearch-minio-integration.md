@@ -283,3 +283,44 @@ User selects a chunking strategy and clicks "Execute"
 - The `FolderLoadDialog` component is still available in the codebase if needed
 - The `POST /api/documents/load` and `POST /api/filesystem/browse` endpoints are preserved
 - SQLite migration adds new columns with defaults, so existing databases are upgraded automatically
+
+---
+
+## Chunk edit write-back to Elasticsearch
+
+When a user edits a chunk in the Viewer/Editor panel and saves, the change is persisted both locally (SQLite `chunk_edits` table) and back to the originating Elasticsearch index.
+
+### Write-back flow
+
+```
+User edits chunk content in ViewerEditor → clicks 保存
+  → PUT /api/chunks/{id}/edit {modified_content: "..."}
+  → ChunkEdit upserted in SQLite
+  → _sync_chunk_to_es() checks:
+      1. doc.source_type == "elasticsearch"? (skip if local)
+      2. chunk.chunking_strategy == doc.chunking_strategy? (skip if re-chunked with different strategy)
+  → BGE-M3 re-embedding: GET embedding for modified_content
+  → ES update: {content: modified_content, embedding: new_vector}
+  → Response: {es_synced: true/false}
+  → Frontend shows ES同期済み (green) or ES未同期 (amber) badge
+```
+
+### Revert (delete edit) flow
+
+```
+User reverts chunk edit (DiffView → 元に戻す, or blue dot in table)
+  → DELETE /api/chunks/{id}/edit
+  → ChunkEdit row deleted from SQLite
+  → _sync_chunk_to_es() called with original_content
+  → BGE-M3 re-embeds original content
+  → ES restored to original content + original embedding
+  → Response: {es_synced: true/false}
+```
+
+### Strategy guard
+
+If the user has re-chunked the document with a different strategy (e.g., changed from `markdown` to `page`), the new chunk indices no longer correspond to ES `chunk_id` values. In this case `_sync_chunk_to_es()` detects the mismatch (`chunk.chunking_strategy != doc.chunking_strategy`) and skips the ES update entirely, returning `es_synced: false`.
+
+### Index filtering
+
+The ES index selector only shows indices whose name starts with `rag-anything-glmhybridocr-`, since only those contain the `minio_metadata` fields required by the platform. Other indices are excluded server-side in `GET /api/es/indices`.

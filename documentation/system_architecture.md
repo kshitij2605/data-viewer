@@ -4,7 +4,9 @@
 
 Data Viewer is a full-stack application for reviewing PDF documents that have been processed through an OCR/extraction pipeline. It enables users to view extracted content (markdown, tables, images), chunk the text using multiple strategies, evaluate chunk quality via LLM-as-a-Judge, and provide human feedback.
 
-**Stack**: FastAPI (Python) + React (TypeScript) + SQLite + Qwen LLM
+**Stack**: FastAPI (Python) + React (TypeScript) + SQLite + Qwen LLM + Elasticsearch + MinIO
+
+Deployed as a Docker container (multi-stage build) with Uvicorn as the ASGI server.
 
 ---
 
@@ -15,12 +17,14 @@ Browser (React SPA)
   |
   |  HTTP / SSE
   v
-FastAPI Server (Uvicorn)
+FastAPI Server (Uvicorn, inside Docker)
   |
-  +--> SQLite (WAL mode)
+  +--> SQLite (WAL mode, volume-mounted)
   +--> Filesystem (document folders, thumbnails)
+  +--> Elasticsearch (rag_anything indices) — chunk import + write-back
+  +--> MinIO (rag_anything assets) — images, tables, thumbnails, markdown
   +--> Qwen LLM API (llm-host:9000) — scoring, suggestions, AI review
-  +--> BGE-M3 Embedding API (embedding-host:8000) — semantic chunking
+  +--> BGE-M3 Embedding API (embedding-host:8000) — semantic chunking + re-embedding on edit
 ```
 
 ---
@@ -97,6 +101,15 @@ Key relationships:
 | GET | /api/documents/{id}/tables-only | Table images, markdown tables, and HTML table map |
 | GET | /api/documents/{id}/images-only | Images with captions and categories |
 
+#### Elasticsearch Documents (`backend/api/es_documents.py`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/es/indices | List ES indices (filtered to `rag-anything-glmhybridocr-*`) |
+| GET | /api/es/documents?index=X | List unique documents in an index (aggregated by parent_doc_id) |
+| POST | /api/es/documents/{parent_doc_id}/import | Import ES document into SQLite; triggers background AI review |
+| POST | /api/es/documents/{document_id}/refresh | Re-fetch chunks from ES, replacing local copies |
+
 #### Chunks (`backend/api/chunks.py`)
 
 | Method | Endpoint | Description |
@@ -104,10 +117,10 @@ Key relationships:
 | POST | /api/documents/{id}/chunk | Trigger chunking with selected strategy and parameters |
 | GET | /api/documents/{id}/chunks | Paginated chunk list with search |
 | GET | /api/documents/{id}/chunks/{cid} | Single chunk detail |
-| PUT | /api/chunks/{cid}/edit | Save edited chunk content |
+| PUT | /api/chunks/{cid}/edit | Save edited chunk content; syncs to ES with re-embedding if strategy matches |
 | GET | /api/chunks/{cid}/diff | Get original vs modified content |
 | DELETE | /api/documents/{id}/chunks | Delete all chunks for a document |
-| DELETE | /api/chunks/{cid}/edit | Revert chunk edit |
+| DELETE | /api/chunks/{cid}/edit | Revert chunk edit; restores original content in ES |
 | GET | /api/documents/{id}/chunk-status | SSE: async chunking progress (semantic strategy) |
 | GET | /api/documents/{id}/evaluate-chunks | SSE: parallel LLM evaluation with streaming results |
 
@@ -152,8 +165,10 @@ RAG/FAQ scoring and AI suggestion run in parallel per chunk via `asyncio.gather`
 
 #### Other Services
 
+- `backend/services/es_client.py` — Singleton Elasticsearch client with two write functions: `find_es_doc_id()` (finds the ES `_id` by `parent_doc_id` + `chunk_id`) and `update_es_chunk()` (updates content and embedding vector).
+- `backend/services/minio_client.py` — MinIO client for fetching bytes/text, listing objects, and checking existence. Used to proxy images, tables, thumbnails, and markdown from the rag_anything bucket.
 - `backend/services/markdown_parser.py` — Extracts text paragraphs, tables, image references, and table HTML mappings from the OCR-generated markdown. The `extract_table_html_map()` function parses the `![](tables/FILENAME)` + `<table>...</table>` pattern to map table images to their extracted HTML content.
-- `backend/services/embedding.py` — Calls the BGE-M3 embedding endpoint for semantic chunking.
+- `backend/services/embedding.py` — Calls the BGE-M3 embedding endpoint for semantic chunking and for re-embedding edited chunks before ES write-back.
 - `backend/services/pdf_thumbnails.py` — Generates JPEG page thumbnails from layout PDFs using PyMuPDF.
 
 ---
@@ -229,12 +244,19 @@ Type-safe API modules: `auth.ts`, `documents.ts`, `chunks.ts`, `feedback.ts` —
 6. Results pushed to `asyncio.Queue`, streamed as SSE events
 7. Frontend updates individual chunk scores in Zustand store via `updateChunkEval()`
 
+### Chunk Edit + ES Write-back
+
+1. User edits chunk content in ViewerEditor; undo/redo history tracked in component state (Ctrl+Z / Ctrl+Shift+Z)
+2. On save — `PUT /api/chunks/{id}/edit` upserts a `ChunkEdit` row in SQLite
+3. `_sync_chunk_to_es()` checks: is this an ES-sourced document? Does the chunk's current strategy match the document's original ES strategy? If both yes — re-embeds the new content via BGE-M3, then calls `update_es_chunk()` to update both `content` and `embedding` fields in ES
+4. Response includes `es_synced: true/false`; frontend shows a status badge
+5. On revert — `DELETE /api/chunks/{id}/edit` removes the edit and restores original content + embedding in ES via the same path
+
 ### Feedback
 
 1. User selects emoji from dropdown in ChunkTable — `PUT /api/chunks/{id}/feedback` with existing comment preserved
 2. User clicks comment cell to inline-edit — `PUT /api/chunks/{id}/feedback` with existing emoji preserved
-3. User edits chunk content in ViewerEditor — `PUT /api/chunks/{id}/edit`
-4. Emoji and comment are independent (emoji nullable)
+3. Emoji and comment are independent (emoji nullable)
 
 ---
 
@@ -243,14 +265,44 @@ Type-safe API modules: `auth.ts`, `documents.ts`, `chunks.ts`, `feedback.ts` —
 | Service | Host | Purpose |
 |---------|------|---------|
 | Qwen/Qwen3.5-122B-A10B | llm-host:9000 | LLM scoring, AI suggestions, chunking review |
-| BGE-M3 | embedding-host:8000 | Text embeddings for semantic chunking |
+| BGE-M3 | embedding-host:8000 | Text embeddings for semantic chunking and ES re-embedding |
+| Elasticsearch 8.x | elasticsearch-host:9200 | rag_anything chunk index — read (import) and write (edit sync) |
+| MinIO | minio-host:9000 | rag_anything asset storage — images, tables, thumbnails, markdown |
 
 ---
 
 ## Deployment
 
-- **Server**: veda-host:8085
-- **Process**: Uvicorn with `--reload` for development
+### Docker (production)
+
+```
+Docker container (data-viewer)
+  └── Uvicorn (single worker)
+        └── FastAPI app
+              └── Serves pre-built frontend/dist/ as static files
+```
+
+- **Image**: Multi-stage build — Node 22 Alpine builds the React frontend; Python 3.10 slim serves it
+- **Data volume**: `./data` mounted at `/app/data` for SQLite DB and page thumbnails
+- **Config**: `.env` file via `env_file` in `docker-compose.yml`
+- **Port**: `${PORT:-8080}` (host) → 8080 (container)
+
+```bash
+docker compose up -d --build   # start
+docker compose down            # stop
+docker logs data-viewer -f     # logs
+```
+
+### Local development
+
+```bash
+# Backend with hot reload
+python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8085 --reload
+
+# Frontend dev server (HMR, proxies /api to :8085)
+cd frontend && npm run dev
+```
+
 - **Database**: SQLite file with WAL journal mode
 - **Frontend**: Pre-built SPA served as static files from `frontend/dist/`
 - **CORS**: All origins allowed (intranet deployment)

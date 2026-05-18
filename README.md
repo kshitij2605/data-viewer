@@ -1,117 +1,148 @@
-# Data Viewer
+# Data Viewer — RAG Anything
 
-A document analysis and chunk quality evaluation tool for reviewing PDF documents processed through an OCR/extraction pipeline. Enables multi-strategy text chunking, LLM-based quality scoring, and human feedback collection.
+A full-stack platform for reviewing, chunking, and evaluating PDF documents processed through the **rag_anything** OCR/extraction pipeline. Supports both local document folders and Elasticsearch + MinIO as source, with LLM-based quality scoring, human feedback collection, and bi-directional chunk editing that syncs back to Elasticsearch.
 
 ## Features
 
-- **Document Management** — Load pre-processed PDF folders (markdown + metadata + images), browse with page thumbnails
-- **Multi-Strategy Chunking** — 5 strategies: character, recursive, markdown, semantic (BGE-M3 embeddings), and page-wise
-- **LLM Quality Evaluation** — RAG usability and FAQ usability scores (0-10) via Qwen3.5-122B-A10B as judge, with multimodal AI suggestions comparing chunk text against page images
+- **ES + MinIO Integration** — Browse rag_anything Elasticsearch indices, import documents, serve images/tables/thumbnails/markdown from MinIO
+- **Document Management** — Load local pre-processed PDF folders or import from Elasticsearch; browse with page thumbnails
+- **Multi-Strategy Chunking** — 6 strategies: character, recursive, markdown, page + markdown, semantic (BGE-M3 embeddings), page-wise
+- **ES Write-back** — Chunk edits sync back to Elasticsearch with re-embedding via BGE-M3; skipped if a different chunking strategy is selected
+- **LLM Quality Evaluation** — RAG usability and FAQ usability scores (0–10) via Qwen3.5-122B as judge, with multimodal AI suggestions comparing chunk text against page images
 - **AI Chunking Review** — Automatic LLM analysis recommending optimal chunking strategy and parameters per document
-- **Human Feedback** — Per-chunk emoji feedback and comments, chunk content editing with diff tracking
+- **Human Feedback** — Per-chunk emoji feedback (✅ ❌ ✏️ ❓ 〜) and comments, chunk content editing with diff tracking and undo/redo
 - **Rich Viewing Modes** — Chunks, Markdown (page-synced split view), Tables (image + extracted HTML viewer), Images, AI Review
-- **Real-Time Streaming** — SSE-based evaluation progress with per-chunk score updates
+- **Real-Time Streaming** — SSE-based chunking progress and LLM evaluation results streamed per-chunk
 
 ## Architecture
 
 ```
-React (TypeScript) + Zustand + Framer Motion
+Browser (React 19 + TypeScript + Zustand)
           |
-    FastAPI + SQLAlchemy + SQLite
+    FastAPI + SQLAlchemy + SQLite (Docker + Uvicorn)
           |
-    +-----+------+
-    |             |
-Qwen LLM      BGE-M3
-(llm-host)   (embedding-host)
+    +-----+----------+----------+
+    |                |          |
+Elasticsearch     MinIO      Qwen LLM      BGE-M3
+(chunk source)  (assets)  (llm-host:9000) (embedding-host:8000)
 ```
 
 See [documentation/system_architecture.md](documentation/system_architecture.md) for detailed architecture.
 
 ## Prerequisites
 
+**For Docker deployment (recommended):**
+- Docker + Docker Compose
+
+**For local development:**
 - Python 3.10+
 - Node.js 18+
-- Access to the Qwen LLM endpoint (`llm-host:9000`)
-- Access to the BGE-M3 embedding endpoint (`embedding-host:8000`) for semantic chunking
+
+Both require network access to:
+- Qwen LLM endpoint (`llm-host:9000`) — for evaluation and AI review
+- BGE-M3 embedding endpoint (`embedding-host:8000`) — for semantic chunking and ES re-embedding
+- Elasticsearch (`elasticsearch-host:9200`) — for ES document import
+- MinIO (`minio-host:9000`) — for asset serving
 
 ## Setup
 
-### Backend
+### Environment
+
+Copy `.env.example` to `.env` and fill in your values:
 
 ```bash
-pip install -r backend/requirements.txt
+cp .env.example .env
 ```
 
-Create a `.env` file (or set environment variables):
+Key variables:
 
 ```env
-DB_PATH=./data/data_viewer.db
+DB_PATH=data/data_viewer.db
 SECRET_KEY=your-secret-key
-EMBEDDING_ENDPOINT=http://embedding-host:8000/embeddings
-THUMBNAIL_DIR=./data/thumbnails
-```
+PORT=8080
 
-### Frontend
+# Embedding (BGE-M3)
+EMBEDDING_ENDPOINT=http://embedding-host:8000
+EMBEDDING_API_KEY=...
+EMBEDDING_MODEL=BAAI/bge-m3
 
-```bash
-cd frontend
-npm install
-npm run build
+# Elasticsearch
+ES_URL=https://elasticsearch-host:9200
+ES_USER=__REDACTED_ES_USER__
+ES_PASSWORD=...
+ES_VERIFY_CERTS=false
+
+# MinIO
+MINIO_ENDPOINT=minio-host:9000
+MINIO_ACCESS_KEY=...
+MINIO_SECRET_KEY=...
+MINIO_BUCKET=rag-anything
+MINIO_SECURE=false
 ```
 
 ## Running
 
-### Development
+### Docker (recommended)
 
 ```bash
-# Start backend with hot reload
+# First run — build image and start
+docker compose up -d --build
+
+# After code changes — rebuild and restart
+docker compose build && docker compose up -d
+
+# View logs
+docker logs data-viewer -f
+
+# Stop
+docker compose down
+```
+
+The application will be available at `http://localhost:${PORT}` (default `8080`).
+
+### Local Development
+
+```bash
+# Backend with hot reload
 python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8085 --reload
 
-# Frontend dev server (optional, for HMR)
+# Frontend dev server (separate terminal)
 cd frontend && npm run dev
 ```
 
-### Production
-
-```bash
-# Build frontend
-cd frontend && npm run build
-
-# Start server (serves both API and built frontend)
-python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8085
-```
-
-The application will be available at `http://localhost:8085`.
+Frontend dev server proxies `/api` to the backend and runs on `http://localhost:5173`.
 
 ## Usage
 
-1. **Login** with default credentials (`admin` / `password`)
-2. **Load a document** — click `+` in the sidebar, browse to a folder containing `metadata.json` and the processed markdown file (`*_with_captions.mmd`)
+1. **Login** with default credentials (see [Default Users](#default-users))
+2. **Load a document** — two ways:
+   - **Local folder** — click `+` in the sidebar, browse to a folder containing `metadata.json` and `*_with_captions.mmd`
+   - **Elasticsearch** — click the ES import button, select an index (only `rag-anything-glmhybridocr-*` indices are shown), pick a document
 3. **Select a view mode** from the sidebar:
    - **Chunks** — chunk the document, view/edit chunks, run LLM evaluation
    - **Markdown** — split view with page-synced scrolling
-   - **Tables** — table images with click-to-view extracted HTML tables
+   - **Tables** — table images with extracted HTML viewer
    - **Images** — image gallery with captions
    - **AI Review** — LLM-recommended chunking strategy
-4. **Chunk the document** — select strategy and parameters, click the chunking button. LLM evaluation starts automatically after chunking.
-5. **Review and provide feedback** — use emoji feedback, edit chunks, view AI suggestions
+4. **Chunk the document** — select strategy and parameters; the dropdown defaults to the strategy used in ES. LLM evaluation starts automatically after chunking
+5. **Edit chunks** — edit content in the Viewer/Editor panel; use undo/redo buttons or Ctrl+Z / Ctrl+Shift+Z. Saving syncs the edit (with re-embedding) back to the originating ES index if the chunking strategy matches
+6. **Provide feedback** — use emoji reactions, inline comments, or the diff view
 
-## Document Folder Structure
-
-Each document folder should contain:
+## Local Document Folder Structure
 
 ```
 document_folder/
-  metadata.json          # Required: {pdf_title, num_pages, num_images, num_tables}
-  *_with_captions.mmd    # Markdown file with extracted content
-  *_layouts.pdf          # Layout analysis PDF (for thumbnail generation)
-  images/                # Extracted images (charts, figures, etc.)
-  tables/                # Extracted table images (with HTML tables in .mmd)
+  metadata.json            # {pdf_title, num_pages, num_images, num_tables}
+  *_with_captions.mmd      # Markdown with extracted content and image refs
+  *_layouts.pdf            # Layout-annotated PDF (for thumbnails)
+  images/                  # Extracted figures
+  tables/                  # Extracted table images
 ```
 
 ## Documentation
 
 - [System Architecture](documentation/system_architecture.md) — detailed technical architecture
+- [ES + MinIO Integration](documentation/elasticsearch-minio-integration.md) — rag_anything pipeline integration
 - [Chunk Evaluation Scoring](documentation/chunk-evaluation-scoring.md) — LLM scoring methodology and rubrics
 - [Architecture Decision Records](documentation/ADR.md) — major design decisions and rationale
 
@@ -119,6 +150,6 @@ document_folder/
 
 | Username | Password | Role |
 |----------|----------|------|
-| admin | password | Administrator |
-| reviewer1 | password | Reviewer |
-| reviewer2 | password | Reviewer |
+| admin | admin | Administrator |
+| reviewer1 | reviewer1 | Reviewer |
+| reviewer2 | reviewer2 | Reviewer |
