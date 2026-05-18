@@ -47,6 +47,23 @@ def find_es_doc_id(es_index: str, parent_doc_id: str, chunk_index: int) -> str |
     return hits[0]["_id"] if hits else None
 
 
+def delete_es_chunk(es_index: str, parent_doc_id: str, chunk_index: int) -> bool:
+    """Delete a chunk document from ES permanently. Returns True on success."""
+    try:
+        doc_id = find_es_doc_id(es_index, parent_doc_id, chunk_index)
+        if not doc_id:
+            logger.warning("ES doc not found for delete: index=%s parent=%s chunk=%d",
+                           es_index, parent_doc_id, chunk_index)
+            return False
+        es = get_es_client()
+        es.delete(index=es_index, id=doc_id)
+        logger.info("ES chunk deleted: index=%s id=%s", es_index, doc_id)
+        return True
+    except Exception as e:
+        logger.error("Failed to delete ES chunk: %s", e)
+        return False
+
+
 def update_es_chunk(es_index: str, parent_doc_id: str, chunk_index: int,
                     content: str, embedding: list[float] | None = None) -> bool:
     """Update a chunk's content (and optionally embedding) in ES. Returns True on success."""

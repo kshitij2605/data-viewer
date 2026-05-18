@@ -13,18 +13,27 @@ interface ChunkState {
   total: number;
   perPage: number;
   chunkingStrategy: string | null;
+  chunkingDocId: number | null;
   isChunking: boolean;
+  // Evaluation state — stored here so it survives ChunkTable remounts (view switches)
+  isEvaluating: boolean;
+  evalDocId: number | null;
+  evalProgress: { completed: number; total: number };
+  setIsEvaluating: (v: boolean) => void;
+  setEvalDocId: (id: number | null) => void;
+  setEvalProgress: (p: { completed: number; total: number }) => void;
   setChunk: (chunk: Chunk | null) => void;
   setSearch: (query: string) => void;
   setPage: (page: number) => void;
   updateChunkEval: (chunkId: number, data: { rag_score?: number | null; faq_score?: number | null; ai_suggestion?: string | null }) => void;
   clearChunks: (docId: number) => Promise<void>;
+  removeChunk: (chunkId: number) => Promise<{ es_synced: boolean }>;
   fetchChunks: (docId: number) => Promise<void>;
   triggerChunking: (
     docId: number,
     strategy: string,
     params?: Partial<Omit<ChunkParams, 'strategy'>>,
-  ) => Promise<void>;
+  ) => Promise<{ task_id?: string } | null>;
 }
 
 export const useChunkStore = create<ChunkState>((set, get) => ({
@@ -36,7 +45,15 @@ export const useChunkStore = create<ChunkState>((set, get) => ({
   total: 0,
   perPage: PER_PAGE,
   chunkingStrategy: null,
+  chunkingDocId: null,
   isChunking: false,
+  isEvaluating: false,
+  evalDocId: null,
+  evalProgress: { completed: 0, total: 0 },
+
+  setIsEvaluating: (v) => set({ isEvaluating: v }),
+  setEvalDocId: (id) => set({ evalDocId: id }),
+  setEvalProgress: (p) => set({ evalProgress: p }),
 
   setChunk: (chunk: Chunk | null) => {
     set({ selectedChunk: chunk });
@@ -53,6 +70,16 @@ export const useChunkStore = create<ChunkState>((set, get) => ({
   clearChunks: async (docId: number) => {
     await chunkApi.deleteAllChunks(docId);
     set({ chunks: [], selectedChunk: null, total: 0, page: 1, totalPages: 1, searchQuery: '' });
+  },
+
+  removeChunk: async (chunkId: number) => {
+    const result = await chunkApi.deleteChunk(chunkId);
+    set((state) => ({
+      chunks: state.chunks.filter((c) => c.id !== chunkId),
+      selectedChunk: state.selectedChunk?.id === chunkId ? null : state.selectedChunk,
+      total: state.total - 1,
+    }));
+    return result;
   },
 
   updateChunkEval: (chunkId, data) => {
@@ -83,14 +110,14 @@ export const useChunkStore = create<ChunkState>((set, get) => ({
     strategy: string,
     params?: Partial<Omit<ChunkParams, 'strategy'>>,
   ) => {
-    set({ isChunking: true, chunkingStrategy: strategy });
+    set({ isChunking: true, chunkingStrategy: strategy, chunkingDocId: docId });
     try {
       const result = await chunkApi.triggerChunking(docId, {
         strategy,
         ...params,
       });
 
-      // If synchronous result (array of chunks), refresh
+      // Synchronous result (array of chunks) — refresh immediately
       if (Array.isArray(result)) {
         set({ page: 1, searchQuery: '' });
         const { page, perPage } = get();
@@ -104,9 +131,11 @@ export const useChunkStore = create<ChunkState>((set, get) => ({
           totalPages: Math.max(1, Math.ceil(res.total / res.per_page)),
           isChunking: false,
         });
+        return null;
       }
-      // For async (semantic), the caller should use subscribeChunkStatus
-      // and call fetchChunks when complete
+
+      // Async result (semantic) — return task_id for caller to track progress
+      return result as { task_id?: string };
     } catch (err) {
       set({ isChunking: false });
       throw err;

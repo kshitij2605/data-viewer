@@ -86,6 +86,19 @@ const styles = {
     textTransform: 'uppercase' as const,
     fontWeight: 500,
   },
+  ldapBadge: {
+    marginTop: '8px',
+    fontSize: '10px',
+    fontFamily: 'var(--font-display)',
+    fontWeight: 600,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase' as const,
+    color: 'var(--color-primary)',
+    background: 'var(--color-primary-ghost)',
+    padding: '3px 10px',
+    borderRadius: 'var(--radius-full)',
+    border: '1px solid var(--color-primary-light)',
+  },
   form: {
     display: 'flex',
     flexDirection: 'column' as const,
@@ -189,6 +202,7 @@ export default function LoginPage() {
             <img src="/logo.png" alt="大塚商会" style={styles.logo} />
             <span style={styles.companyName}>大塚商会</span>
             <span style={styles.subtitle}>Data Viewer</span>
+            <span style={styles.ldapBadge}>LDAP ID</span>
           </div>
 
           <form style={styles.form} onSubmit={handleSubmit}>
