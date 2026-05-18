@@ -142,6 +142,31 @@ def _format_chunk_response(chunk: Chunk, edit: Optional[ChunkEdit] = None,
     return result
 
 
+def _sync_chunk_to_es(db: Session, chunk: Chunk, content: str) -> bool:
+    """Sync chunk content to Elasticsearch with re-embedding. Returns True on success.
+    Skips sync if the chunk was re-chunked with a different strategy than the original ES strategy."""
+    doc = db.query(Document).filter(Document.id == chunk.document_id).first()
+    if not doc or doc.source_type != "elasticsearch" or not doc.es_index or not doc.es_parent_doc_id:
+        return False
+
+    if doc.chunking_strategy and chunk.chunking_strategy != doc.chunking_strategy:
+        logger.info("Skipping ES sync: chunk strategy '%s' differs from original '%s'",
+                     chunk.chunking_strategy, doc.chunking_strategy)
+        return False
+
+    from backend.services.es_client import update_es_chunk
+    from backend.services.embedding import get_embedding_sync
+
+    embedding = None
+    try:
+        embedding = get_embedding_sync(content)
+    except Exception as e:
+        logger.warning("Re-embedding failed for chunk %d, updating content only: %s", chunk.id, e)
+
+    return update_es_chunk(doc.es_index, doc.es_parent_doc_id, chunk.chunk_index,
+                           content, embedding)
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -374,11 +399,16 @@ def edit_chunk(
 
     db.commit()
     db.refresh(edit)
+
+    # Sync to Elasticsearch if this chunk came from ES
+    es_synced = _sync_chunk_to_es(db, chunk, body.modified_content)
+
     return {
         "id": edit.id,
         "chunk_id": edit.chunk_id,
         "original_content": edit.original_content,
         "modified_content": edit.modified_content,
+        "es_synced": es_synced,
     }
 
 
@@ -416,9 +446,15 @@ def delete_edit(
     if not edit:
         raise HTTPException(status_code=404, detail="No edit found for this chunk")
 
+    # Revert ES content to the original before deleting the edit
+    chunk = db.query(Chunk).filter(Chunk.id == chunk_id).first()
+    es_synced = False
+    if chunk:
+        es_synced = _sync_chunk_to_es(db, chunk, edit.original_content)
+
     db.delete(edit)
     db.commit()
-    return {"detail": "Edit reverted"}
+    return {"detail": "Edit reverted", "es_synced": es_synced}
 
 
 @router.delete("/api/documents/{document_id}/chunks")

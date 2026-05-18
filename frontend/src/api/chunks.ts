@@ -60,13 +60,22 @@ export async function getChunk(
   return res.data;
 }
 
+export interface EditChunkResponse {
+  id: number;
+  chunk_id: number;
+  original_content: string;
+  modified_content: string;
+  es_synced?: boolean;
+}
+
 export async function editChunk(
   chunkId: number,
   modifiedContent: string,
-): Promise<void> {
-  await client.put(`/chunks/${chunkId}/edit`, {
+): Promise<EditChunkResponse> {
+  const res = await client.put<EditChunkResponse>(`/chunks/${chunkId}/edit`, {
     modified_content: modifiedContent,
   });
+  return res.data;
 }
 
 export async function getDiff(

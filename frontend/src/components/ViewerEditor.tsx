@@ -97,6 +97,35 @@ const css = {
     display: 'flex',
     gap: '8px',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  undoRedoGroup: {
+    display: 'flex',
+    gap: '4px',
+    marginRight: 'auto',
+  },
+  undoRedoBtn: {
+    padding: '6px 10px',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    background: 'var(--color-surface)',
+    fontSize: 'var(--text-sm)',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-display)',
+    transition: 'all var(--transition-normal)',
+    color: 'var(--color-text-secondary)',
+    lineHeight: 1,
+  },
+  undoRedoBtnDisabled: {
+    opacity: 0.35,
+    cursor: 'default',
+  },
+  esSyncBadge: {
+    fontSize: 'var(--text-xs)',
+    padding: '3px 10px',
+    borderRadius: 'var(--radius-full)',
+    fontWeight: 500,
+    fontFamily: 'var(--font-display)',
   },
   saveBtn: {
     padding: '7px 22px',
@@ -147,15 +176,79 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
   const [commentText, setCommentText] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [esSynced, setEsSynced] = useState<boolean | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Undo/redo history
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const isUndoRedo = useRef(false);
 
   useEffect(() => {
     if (selectedChunk) {
-      setEditText(selectedChunk.content);
+      const initial = selectedChunk.content;
+      setEditText(initial);
+      setHistory([initial]);
+      setHistoryIndex(0);
       setCommentText(selectedChunk.feedback_comment || '');
       setStatus('idle');
+      setEsSynced(null);
     }
   }, [selectedChunk]);
+
+  const handleTextChange = useCallback((value: string) => {
+    setEditText(value);
+    if (isUndoRedo.current) {
+      isUndoRedo.current = false;
+      return;
+    }
+    setHistory((prev) => {
+      const truncated = prev.slice(0, historyIndex + 1);
+      return [...truncated, value];
+    });
+    setHistoryIndex((prev) => prev + 1);
+  }, [historyIndex]);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  const handleUndo = useCallback(() => {
+    if (!canUndo) return;
+    isUndoRedo.current = true;
+    const newIndex = historyIndex - 1;
+    setHistoryIndex(newIndex);
+    setEditText(history[newIndex]);
+  }, [canUndo, historyIndex, history]);
+
+  const handleRedo = useCallback(() => {
+    if (!canRedo) return;
+    isUndoRedo.current = true;
+    const newIndex = historyIndex + 1;
+    setHistoryIndex(newIndex);
+    setEditText(history[newIndex]);
+  }, [canRedo, historyIndex, history]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (mode !== 'content') return;
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [mode, handleUndo, handleRedo]);
 
   const autoResize = useCallback(() => {
     const ta = textareaRef.current;
@@ -173,9 +266,11 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
     if (!selectedChunk) return;
     setSaving(true);
     setStatus('idle');
+    setEsSynced(null);
     try {
       if (mode === 'content') {
-        await editChunk(selectedChunk.id, editText);
+        const res = await editChunk(selectedChunk.id, editText);
+        setEsSynced(res.es_synced ?? null);
       } else {
         await setFeedback(selectedChunk.id, selectedChunk.feedback_emoji || '', commentText);
       }
@@ -210,7 +305,7 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
           <span>Viewer and Editor</span>
           {selectedChunk && (
             <span style={css.chunkLabel}>
-              &mdash; Chunk #{selectedChunk.chunk_index + 1}
+              &mdash; Chunk #{selectedChunk.chunk_index}
             </span>
           )}
         </div>
@@ -276,7 +371,7 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
                         ref={textareaRef}
                         style={css.textarea}
                         value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
+                        onChange={(e) => handleTextChange(e.target.value)}
                         onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-primary)'; }}
                         onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
                       />
@@ -302,6 +397,42 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
                 </AnimatePresence>
 
                 <div style={css.actions}>
+                  {mode === 'content' && (
+                    <div style={css.undoRedoGroup}>
+                      <button
+                        style={{
+                          ...css.undoRedoBtn,
+                          ...(!canUndo ? css.undoRedoBtnDisabled : {}),
+                        }}
+                        onClick={handleUndo}
+                        disabled={!canUndo}
+                        title="元に戻す (Ctrl+Z)"
+                      >
+                        &#x21A9; 戻す
+                      </button>
+                      <button
+                        style={{
+                          ...css.undoRedoBtn,
+                          ...(!canRedo ? css.undoRedoBtnDisabled : {}),
+                        }}
+                        onClick={handleRedo}
+                        disabled={!canRedo}
+                        title="やり直す (Ctrl+Shift+Z)"
+                      >
+                        やり直す &#x21AA;
+                      </button>
+                    </div>
+                  )}
+                  {status === 'saved' && esSynced === true && (
+                    <span style={{ ...css.esSyncBadge, color: '#047857', background: '#ecfdf5' }}>
+                      ES同期済み
+                    </span>
+                  )}
+                  {status === 'saved' && esSynced === false && (
+                    <span style={{ ...css.esSyncBadge, color: '#b45309', background: '#fffbeb' }}>
+                      ES未同期
+                    </span>
+                  )}
                   <button
                     style={{
                       ...css.saveBtn,
