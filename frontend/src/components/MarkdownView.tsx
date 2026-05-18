@@ -6,6 +6,9 @@ import { useDocumentStore } from '../stores/documentStore.ts';
 import { getMarkdown } from '../api/documents.ts';
 import { withToken } from '../api/client.ts';
 
+// Session-level cache: docId → markdown text. Cleared when a new document is selected.
+const markdownCache = new Map<number, string>();
+
 const css = {
   container: {
     flex: 1,
@@ -156,14 +159,19 @@ export default function MarkdownView({ onImageClick }: MarkdownViewProps) {
 
   useEffect(() => {
     if (!doc) return;
-    setLoading(true);
     setError('');
     setActivePage(1);
+    const cached = markdownCache.get(doc.id);
+    if (cached !== undefined) {
+      setContent(cached);
+      return;
+    }
+    setLoading(true);
     getMarkdown(doc.id)
-      .then(setContent)
+      .then((text) => { markdownCache.set(doc.id, text); setContent(text); })
       .catch(() => setError('Markdownの取得に失敗しました。'))
       .finally(() => setLoading(false));
-  }, [doc]);
+  }, [doc?.id]);
 
   // Scroll handler: find the last section whose top is at or above the scroll viewport top
   useEffect(() => {

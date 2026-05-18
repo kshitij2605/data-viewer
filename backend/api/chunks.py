@@ -74,7 +74,9 @@ def _get_image_filenames(document: Document) -> list:
 
 
 def _store_chunks(db: Session, document: Document, chunk_dicts: list, body: ChunkRequest):
-    """Delete old chunks and store new ones with chunk_images."""
+    """Delete old chunks and store new ones with chunk_images.
+    Never modifies document.chunking_strategy — for ES docs that field records the original
+    ES strategy and must not be overwritten by local re-chunking."""
     # Delete existing chunks (CASCADE handles edits/feedback/images)
     db.query(Chunk).filter(Chunk.document_id == document.id).delete()
     db.flush()
@@ -206,7 +208,15 @@ def chunk_document_endpoint(
         import uuid
         task_id = str(uuid.uuid4())
         with _chunk_tasks_lock:
-            _chunk_tasks[task_id] = {"status": "processing", "progress": 0, "total": 0}
+            _chunk_tasks[task_id] = {
+                "status": "processing", "progress": 0, "total": 0,
+                "pages_done": 0, "total_pages": document.num_pages or 0,
+            }
+
+        def _page_progress(pages_done: int, total_pages: int):
+            with _chunk_tasks_lock:
+                _chunk_tasks[task_id]["pages_done"] = pages_done
+                _chunk_tasks[task_id]["total_pages"] = total_pages
 
         def _run_semantic():
             from backend.db import SessionLocal
@@ -219,6 +229,7 @@ def chunk_document_endpoint(
                     chunk_overlap=body.chunk_overlap or 200,
                     similarity_threshold=body.similarity_threshold or 0.5,
                     min_chunk_size=body.min_chunk_size or 100,
+                    progress_fn=_page_progress,
                 )
                 with _chunk_tasks_lock:
                     _chunk_tasks[task_id]["total"] = len(chunk_dicts)
@@ -295,6 +306,43 @@ def chunk_document_endpoint(
     return [_format_chunk_response(c) for c in chunks]
 
 
+@router.get("/api/documents/{document_id}/chunk-stats")
+def chunk_stats(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return avg/median RAG and FAQ scores across all scored chunks."""
+    rows = (
+        db.query(Chunk.rag_score, Chunk.faq_score)
+        .filter(Chunk.document_id == document_id)
+        .all()
+    )
+    total = len(rows)
+    if total == 0:
+        return {"total": 0, "scored": 0, "avg_rag": None, "median_rag": None, "avg_faq": None, "median_faq": None}
+
+    rag = sorted(r for r, _ in rows if r is not None)
+    faq = sorted(f for _, f in rows if f is not None)
+    scored = len(rag)
+
+    def _median(vals):
+        n = len(vals)
+        if n == 0:
+            return None
+        mid = n // 2
+        return vals[mid] if n % 2 else (vals[mid - 1] + vals[mid]) / 2
+
+    return {
+        "total": total,
+        "scored": scored,
+        "avg_rag": round(sum(rag) / len(rag), 2) if rag else None,
+        "median_rag": _median(rag),
+        "avg_faq": round(sum(faq) / len(faq), 2) if faq else None,
+        "median_faq": _median(faq),
+    }
+
+
 @router.get("/api/documents/{document_id}/chunks")
 def list_chunks(
     document_id: int,
@@ -367,6 +415,71 @@ def get_chunk(
 
     chunk, edit, feedback = row
     return _format_chunk_response(chunk, edit, feedback)
+
+
+@router.post("/api/chunks/{chunk_id}/evaluate")
+async def evaluate_single_chunk(
+    chunk_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-evaluate RAG/FAQ scores and AI suggestion for a single chunk.
+    Uses the modified content if a ChunkEdit exists, otherwise the original content."""
+    import tempfile
+    from backend.services.llm_eval import evaluate_chunk_all
+    from backend.services.pdf_thumbnails import get_thumbnail_path
+
+    chunk = db.query(Chunk).filter(Chunk.id == chunk_id).first()
+    if not chunk:
+        raise HTTPException(status_code=404, detail="Chunk not found")
+
+    # Use edited content if available
+    edit = (
+        db.query(ChunkEdit)
+        .filter(ChunkEdit.chunk_id == chunk_id)
+        .first()
+    )
+    content = edit.modified_content if edit else chunk.content
+
+    doc = db.query(Document).filter(Document.id == chunk.document_id).first()
+
+    # Resolve thumbnail path
+    thumb_path: str | None = None
+    if doc and doc.source_type == "elasticsearch" and doc.minio_prefix:
+        from backend.services.minio_client import fetch_minio_bytes
+        prefix = doc.minio_prefix
+        pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix
+        for candidate in [
+            f"{prefix}/pages/{pdf_name}_{chunk.page_number}.png",
+            f"{prefix}/pages/page_{chunk.page_number}.png",
+        ]:
+            try:
+                data = fetch_minio_bytes(candidate)
+                tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                tmp.write(data)
+                tmp.close()
+                thumb_path = tmp.name
+                break
+            except Exception:
+                continue
+    elif doc:
+        p = get_thumbnail_path(doc.id, chunk.page_number)
+        thumb_path = str(p) if p and p.exists() else None
+
+    result = await evaluate_chunk_all(content, thumb_path)
+
+    # Persist updated scores to DB
+    chunk.rag_score = result.get("rag_score")
+    chunk.faq_score = result.get("faq_score")
+    chunk.ai_suggestion = result.get("ai_suggestion")
+    db.commit()
+
+    return {
+        "chunk_id": chunk_id,
+        "rag_score": chunk.rag_score,
+        "faq_score": chunk.faq_score,
+        "ai_suggestion": chunk.ai_suggestion,
+    }
 
 
 @router.put("/api/chunks/{chunk_id}/edit")
@@ -457,6 +570,28 @@ def delete_edit(
     return {"detail": "Edit reverted", "es_synced": es_synced}
 
 
+@router.delete("/api/chunks/{chunk_id}")
+def delete_chunk(
+    chunk_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Permanently delete a single chunk from SQLite and (if ES-sourced) from Elasticsearch."""
+    chunk = db.query(Chunk).filter(Chunk.id == chunk_id).first()
+    if not chunk:
+        raise HTTPException(status_code=404, detail="Chunk not found")
+
+    es_synced = False
+    doc = db.query(Document).filter(Document.id == chunk.document_id).first()
+    if doc and doc.source_type == "elasticsearch" and doc.es_index and doc.es_parent_doc_id:
+        from backend.services.es_client import delete_es_chunk
+        es_synced = delete_es_chunk(doc.es_index, doc.es_parent_doc_id, chunk.chunk_index)
+
+    db.delete(chunk)
+    db.commit()
+    return {"detail": "Chunk deleted", "es_synced": es_synced}
+
+
 @router.delete("/api/documents/{document_id}/chunks")
 def delete_all_chunks(
     document_id: int,
@@ -496,6 +631,8 @@ async def chunk_status_sse(
                 "status": status,
                 "progress": task.get("progress", 0),
                 "total": task.get("total", 0),
+                "pages_done": task.get("pages_done", 0),
+                "total_pages": task.get("total_pages", 0),
             }
 
             if status == "error":

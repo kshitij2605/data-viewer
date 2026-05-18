@@ -95,6 +95,23 @@ export async function deleteAllChunks(docId: number): Promise<void> {
   await client.delete(`/documents/${docId}/chunks`);
 }
 
+export async function deleteChunk(chunkId: number): Promise<{ es_synced: boolean }> {
+  const res = await client.delete<{ es_synced: boolean }>(`/chunks/${chunkId}`);
+  return res.data;
+}
+
+export interface EvalSingleResult {
+  chunk_id: number;
+  rag_score: number | null;
+  faq_score: number | null;
+  ai_suggestion: string | null;
+}
+
+export async function evaluateChunk(chunkId: number): Promise<EvalSingleResult> {
+  const res = await client.post<EvalSingleResult>(`/chunks/${chunkId}/evaluate`);
+  return res.data;
+}
+
 export interface EvalResult {
   type: 'start' | 'result' | 'done';
   chunk_id?: number;
@@ -119,6 +136,20 @@ export function subscribeEvaluation(
     } catch { /* ignore */ }
   };
   return es;
+}
+
+export interface ChunkStats {
+  total: number;
+  scored: number;
+  avg_rag: number | null;
+  median_rag: number | null;
+  avg_faq: number | null;
+  median_faq: number | null;
+}
+
+export async function getChunkStats(docId: number): Promise<ChunkStats> {
+  const res = await client.get<ChunkStats>(`/documents/${docId}/chunk-stats`);
+  return res.data;
 }
 
 export function subscribeChunkStatus(

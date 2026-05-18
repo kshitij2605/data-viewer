@@ -76,7 +76,14 @@ def extract_tables(markdown: str) -> List[Dict]:
 
 
 def extract_images_with_captions(markdown: str) -> List[Dict]:
-    """Extract image references with their italic captions."""
+    """Extract image references with their captions.
+
+    Handles four caption patterns found in rag_anything .mmd files:
+    - Single-line italic:       *caption text*
+    - Multi-paragraph italic:   *first line\\n...\\nlast line*  (closing * may be several lines later)
+    - Code-fence OCR extract:   ```\\ntext\\n```  (scanned_text category images)
+    - Blockquote chart desc:    > **Chart Description:** text
+    """
     lines = markdown.split("\n")
     images: List[Dict] = []
     i = 0
@@ -86,19 +93,46 @@ def extract_images_with_captions(markdown: str) -> List[Dict]:
         if img_match:
             image_path = img_match.group(1)
             caption = ""
-            # Look ahead for caption (skip blank lines)
+            # Skip blank lines after image ref
             j = i + 1
             while j < len(lines) and lines[j].strip() == "":
                 j += 1
             if j < len(lines):
                 next_line = lines[j].strip()
-                # Italic caption: *caption text*
+                # Single-line italic: *caption*
                 caption_match = re.match(r"^\*([^*]+)\*\s*$", next_line)
                 if caption_match:
                     caption = caption_match.group(1)
+                # Multi-paragraph italic: starts with * but no closing * on the same line
+                elif next_line.startswith("*") and not next_line.endswith("*"):
+                    parts = [next_line[1:]]  # strip leading *
+                    j += 1
+                    while j < len(lines):
+                        part = lines[j].strip()
+                        if part.endswith("*"):
+                            parts.append(part[:-1])  # strip trailing *
+                            j += 1
+                            break
+                        # Stop at structural boundaries
+                        if part.startswith("![") or part == "---" or part.startswith("#"):
+                            break
+                        parts.append(part)
+                        j += 1
+                    caption = "\n".join(p for p in parts if p)
+                # Code-fence OCR extract (scanned_text images)
+                elif next_line == "```":
+                    j += 1
+                    parts = []
+                    while j < len(lines) and lines[j].strip() != "```":
+                        parts.append(lines[j])
+                        j += 1
+                    caption = "\n".join(parts).strip()
                 else:
-                    # Blockquote chart description: > **Chart Description:** text
-                    chart_match = re.match(r"^>\s*\*\*(?:Chart Description|図表説明)[:\uff1a]*\*\*\s*(.+)$", next_line)
+                    # Blockquote chart description
+                    chart_match = re.match(
+                        r"^>\s*\*\*(?:Chart Description|図表説明)[:：]*\*\*\s*(.+)$",
+                        next_line,
+                    )
                     if chart_match:
                         caption = chart_match.group(1).strip()
 

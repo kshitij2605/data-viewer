@@ -26,3 +26,18 @@ def get_embedding_sync(text: str) -> list[float]:
     )
     response.raise_for_status()
     return response.json()["data"][0]["embedding"]
+
+
+def get_embeddings_sync_batch(texts: list[str]) -> list[list[float]]:
+    """Synchronous batch embedding — single HTTP call for all texts."""
+    response = httpx.post(
+        f"{settings.embedding_endpoint}/v1/embeddings",
+        json={"input": texts, "model": settings.embedding_model},
+        headers={"Authorization": f"Bearer {settings.embedding_api_key}"},
+        timeout=120.0,
+    )
+    response.raise_for_status()
+    data = response.json()["data"]
+    # API may return results out of order; sort by index field if present
+    data.sort(key=lambda x: x.get("index", 0))
+    return [item["embedding"] for item in data]

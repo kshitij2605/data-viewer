@@ -18,6 +18,25 @@ from backend.services.minio_client import fetch_minio_bytes, minio_object_exists
 
 logger = logging.getLogger(__name__)
 
+# Known strategy keywords in index names (order matters — check longer first)
+_INDEX_STRATEGY_KEYWORDS = [
+    ("page-markdown", "page_markdown"),
+    ("markdown", "markdown"),
+    ("semantic", "semantic"),
+    ("recursive", "recursive"),
+    ("character", "character"),
+    ("page", "page"),
+]
+
+
+def _strategy_from_index(index_name: str) -> str | None:
+    """Infer chunking strategy from index name as a fallback."""
+    lower = index_name.lower()
+    for keyword, strategy in _INDEX_STRATEGY_KEYWORDS:
+        if keyword in lower:
+            return strategy
+    return None
+
 router = APIRouter(prefix="/api/es", tags=["elasticsearch"])
 
 
@@ -192,8 +211,11 @@ async def import_es_document(
     metadata = first_source.get("metadata", {})
     minio_meta = metadata.get("minio_metadata", {})
     filename = metadata.get("filename", parent_doc_id)
-    # Extract chunking strategy from ES metadata (set by rag_anything pipeline)
-    es_chunking_strategy = metadata.get("chunking_strategy", None)
+    # Index name is more reliable than metadata field (metadata often has wrong "page" value)
+    es_chunking_strategy = (
+        _strategy_from_index(index)
+        or metadata.get("chunking_strategy")
+    )
     es_chunk_size = metadata.get("chunk_size", None)
     es_chunk_overlap = metadata.get("chunk_overlap", None)
 
@@ -256,7 +278,7 @@ async def import_es_document(
     db.flush()  # get doc.id
 
     # Create Chunk rows
-    chunking_strategy = metadata.get("chunking_strategy", "unknown")
+    chunking_strategy = metadata.get("chunking_strategy") or _strategy_from_index(index) or "unknown"
     for chunk_hit in chunks_data:
         src = chunk_hit["_source"]
         chunk_minio = src.get("metadata", {}).get("minio_metadata", {})
@@ -321,7 +343,7 @@ def refresh_from_es(
     db.query(Chunk).filter(Chunk.document_id == doc.id).delete()
 
     metadata = chunks_data[0]["_source"].get("metadata", {})
-    chunking_strategy = metadata.get("chunking_strategy", "unknown")
+    chunking_strategy = _strategy_from_index(doc.es_index or "") or metadata.get("chunking_strategy") or "unknown"
     doc.chunking_strategy = chunking_strategy
 
     for chunk_hit in chunks_data:

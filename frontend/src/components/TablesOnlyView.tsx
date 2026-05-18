@@ -5,6 +5,9 @@ import { getTablesOnly } from '../api/documents.ts';
 import { withToken } from '../api/client.ts';
 import type { TableImage } from '../api/documents.ts';
 
+interface TablesCache { table_images: TableImage[]; table_html_map: Record<string, string>; }
+const tablesCache = new Map<number, TablesCache>();
+
 const css = {
   container: {
     flex: 1,
@@ -108,16 +111,23 @@ export default function TablesOnlyView({ onImageClick }: TablesOnlyViewProps) {
 
   useEffect(() => {
     if (!doc) return;
-    setLoading(true);
     setError('');
+    const cached = tablesCache.get(doc.id);
+    if (cached !== undefined) {
+      setTableImages(cached.table_images);
+      setTableHtmlMap(cached.table_html_map);
+      return;
+    }
+    setLoading(true);
     getTablesOnly(doc.id)
       .then((data) => {
+        tablesCache.set(doc.id, { table_images: data.table_images, table_html_map: data.table_html_map || {} });
         setTableImages(data.table_images);
         setTableHtmlMap(data.table_html_map || {});
       })
       .catch(() => setError('テーブルの取得に失敗しました。'))
       .finally(() => setLoading(false));
-  }, [doc]);
+  }, [doc?.id]);
 
   if (!doc) {
     return <div style={css.loading}>ドキュメントを選択してください。</div>;

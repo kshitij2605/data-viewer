@@ -5,6 +5,8 @@ import { getImagesOnly } from '../api/documents.ts';
 import type { ImageWithCaption } from '../api/documents.ts';
 import { withToken } from '../api/client.ts';
 
+const imagesCache = new Map<number, ImageWithCaption[]>();
+
 const CATEGORY_LABELS: Record<string, string> = {
   chart: 'チャート',
   figure: 'フィギュア',
@@ -128,13 +130,18 @@ export default function ImagesOnlyView({ onImageClick }: ImagesOnlyViewProps) {
 
   useEffect(() => {
     if (!doc) return;
-    setLoading(true);
     setError('');
+    const cached = imagesCache.get(doc.id);
+    if (cached !== undefined) {
+      setImages(cached);
+      return;
+    }
+    setLoading(true);
     getImagesOnly(doc.id)
-      .then(setImages)
+      .then((data) => { imagesCache.set(doc.id, data); setImages(data); })
       .catch(() => setError('画像の取得に失敗しました。'))
       .finally(() => setLoading(false));
-  }, [doc]);
+  }, [doc?.id]);
 
   // Group images by category if any have image_type set
   const { grouped, hasCategories } = useMemo(() => {

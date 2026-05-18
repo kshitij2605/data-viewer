@@ -121,6 +121,7 @@ def _split_semantic(
     similarity_threshold: float,
     min_chunk_size: int,
     embedding_fn: Callable[[str], List[float]],
+    batch_embedding_fn: Optional[Callable[[List[str]], List[List[float]]]] = None,
 ) -> List[str]:
     """Split text into semantically coherent chunks using embeddings."""
     # Split into sentences
@@ -130,9 +131,12 @@ def _split_semantic(
     if len(sentences) <= 1:
         return [text.strip()] if text.strip() else []
 
-    # Get embeddings
+    # Get embeddings — use batch call when available to avoid N round-trips
     try:
-        embeddings = [embedding_fn(s) for s in sentences]
+        if batch_embedding_fn is not None:
+            embeddings = batch_embedding_fn(sentences)
+        else:
+            embeddings = [embedding_fn(s) for s in sentences]
     except Exception:
         # Fallback to recursive
         return _split_recursive(text, chunk_size, 100)
@@ -243,6 +247,7 @@ def chunk_document(
     min_chunk_size: int = 100,
     embedding_fn: Optional[Callable] = None,
     metadata_images: Optional[list] = None,
+    progress_fn: Optional[Callable[[int, int], None]] = None,
 ) -> List[Dict]:
     """Chunk *markdown_content* and return a list of chunk dicts.
 
@@ -280,26 +285,33 @@ def chunk_document(
     # For other strategies: chunk each page separately, then collect
     # ------------------------------------------------------------------
     # Resolve embedding function for semantic strategy
+    batch_embedding_fn = None
     if strategy_lower == "semantic" and embedding_fn is None:
-        from backend.services.embedding import get_embedding_sync
+        from backend.services.embedding import get_embedding_sync, get_embeddings_sync_batch
         embedding_fn = get_embedding_sync
+        batch_embedding_fn = get_embeddings_sync_batch
 
     results: List[Dict] = []
     chunk_idx = 0
+    total_pages = len(pages)
 
-    for page_num, page_text in pages:
+    for page_idx, (page_num, page_text) in enumerate(pages):
         if strategy_lower == "character":
             chunks = _split_character(page_text, chunk_size, chunk_overlap)
         elif strategy_lower == "recursive":
             chunks = _split_recursive(page_text, chunk_size, chunk_overlap)
         elif strategy_lower == "semantic":
             chunks = _split_semantic(
-                page_text, chunk_size, similarity_threshold, min_chunk_size, embedding_fn
+                page_text, chunk_size, similarity_threshold, min_chunk_size,
+                embedding_fn, batch_embedding_fn,
             )
-        elif strategy_lower == "markdown":
+        elif strategy_lower in ("markdown", "page_markdown"):
             chunks = _split_markdown(page_text, chunk_size, chunk_overlap)
         else:
             raise ValueError(f"Unknown chunking strategy: {strategy}")
+
+        if progress_fn is not None:
+            progress_fn(page_idx + 1, total_pages)
 
         for chunk_text in chunks:
             results.append(

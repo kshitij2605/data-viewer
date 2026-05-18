@@ -64,13 +64,17 @@ def _get_or_create_ldap_user(db: Session, ldap_info: dict) -> User:
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     if settings.ldap_url:
         ldap_info = ldap_authenticate(body.username, body.password)
-        if ldap_info is not None:
-            user = _get_or_create_ldap_user(db, ldap_info)
-            token = create_access_token(user.id, user.username)
-            return LoginResponse(
-                token=token,
-                user=UserInfo(id=user.id, username=user.username, display_name=user.display_name),
+        if ldap_info is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid username or password",
             )
+        user = _get_or_create_ldap_user(db, ldap_info)
+        token = create_access_token(user.id, user.username)
+        return LoginResponse(
+            token=token,
+            user=UserInfo(id=user.id, username=user.username, display_name=user.display_name),
+        )
 
     user = db.query(User).filter(User.username == body.username).first()
     if not user or not verify_password(body.password, user.password_hash):

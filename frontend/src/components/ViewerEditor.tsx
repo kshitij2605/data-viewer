@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChunkStore } from '../stores/chunkStore.ts';
 import { useDocumentStore } from '../stores/documentStore.ts';
-import { editChunk } from '../api/chunks.ts';
+import { editChunk, evaluateChunk } from '../api/chunks.ts';
 import { setFeedback } from '../api/feedback.ts';
 
 const css = {
@@ -169,7 +169,7 @@ interface ViewerEditorProps {
 }
 
 export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorProps) {
-  const { selectedChunk, fetchChunks } = useChunkStore();
+  const { selectedChunk, fetchChunks, updateChunkEval } = useChunkStore();
   const doc = useDocumentStore((s) => s.selectedDocument);
   const [mode, setMode] = useState<'content' | 'comment'>('content');
   const [editText, setEditText] = useState('');
@@ -177,6 +177,7 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [esSynced, setEsSynced] = useState<boolean | null>(null);
+  const [isRevaluating, setIsRevaluating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/redo history
@@ -193,6 +194,7 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
       setCommentText(selectedChunk.feedback_comment || '');
       setStatus('idle');
       setEsSynced(null);
+      setIsRevaluating(false);
     }
   }, [selectedChunk]);
 
@@ -271,12 +273,27 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
       if (mode === 'content') {
         const res = await editChunk(selectedChunk.id, editText);
         setEsSynced(res.es_synced ?? null);
+        setStatus('saved');
+        if (doc) await fetchChunks(doc.id);
+
+        // Re-evaluate scores for the modified chunk in the background
+        setIsRevaluating(true);
+        try {
+          const evalRes = await evaluateChunk(selectedChunk.id);
+          updateChunkEval(selectedChunk.id, {
+            rag_score: evalRes.rag_score,
+            faq_score: evalRes.faq_score,
+            ai_suggestion: evalRes.ai_suggestion,
+          });
+        } catch {
+          // Silently ignore eval failure — scores stay stale but edit was saved
+        } finally {
+          setIsRevaluating(false);
+        }
       } else {
         await setFeedback(selectedChunk.id, selectedChunk.feedback_emoji || '', commentText);
-      }
-      setStatus('saved');
-      if (doc) {
-        await fetchChunks(doc.id);
+        setStatus('saved');
+        if (doc) await fetchChunks(doc.id);
       }
     } catch {
       setStatus('error');
@@ -433,13 +450,18 @@ export default function ViewerEditor({ isOpen = true, onToggle }: ViewerEditorPr
                       ES未同期
                     </span>
                   )}
+                  {isRevaluating && (
+                    <span style={{ ...css.esSyncBadge, color: '#6366f1', background: '#eef2ff' }}>
+                      再評価中...
+                    </span>
+                  )}
                   <button
                     style={{
                       ...css.saveBtn,
                       opacity: saving ? 0.7 : 1,
                     }}
                     onClick={handleSave}
-                    disabled={saving}
+                    disabled={saving || isRevaluating}
                   >
                     {saving ? '保存中...' : '保存'}
                   </button>

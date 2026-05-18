@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useChunkStore } from '../stores/chunkStore.ts';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import { setFeedback } from '../api/feedback.ts';
-import { deleteEdit, subscribeEvaluation } from '../api/chunks.ts';
-import type { Chunk, EvalResult } from '../api/chunks.ts';
+import { deleteEdit, subscribeEvaluation, getChunkStats } from '../api/chunks.ts';
+import type { Chunk, EvalResult, ChunkStats } from '../api/chunks.ts';
 
 const FEEDBACK_OPTIONS = [
   { type: 'correct', emoji: '\u2705', label: '正確' },
@@ -314,7 +314,9 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
   const {
     chunks, selectedChunk, page, totalPages, isChunking,
     setChunk, setPage, fetchChunks, setSearch, searchQuery, triggerChunking,
-    updateChunkEval, clearChunks,
+    updateChunkEval, removeChunk, chunkingStrategy, chunkingDocId,
+    isEvaluating, evalDocId, evalProgress,
+    setIsEvaluating, setEvalDocId, setEvalProgress,
   } = useChunkStore();
 
   const [strategy, setStrategy] = useState('page');
@@ -325,29 +327,72 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [expandedSuggestionId, setExpandedSuggestionId] = useState<number | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [evalProgress, setEvalProgress] = useState({ completed: 0, total: 0 });
   const evalEsRef = useRef<EventSource | null>(null);
+  const [semanticProgress, setSemanticProgress] = useState<{ pagesDone: number; totalPages: number } | null>(null);
+  const semanticStartTimeRef = useRef<number>(0);
+  const semanticEsRef = useRef<EventSource | null>(null);
+  const [chunkStats, setChunkStats] = useState<ChunkStats | null>(null);
 
   // Which strategies support chunk_size/overlap params
-  const showSizeParams = ['character', 'recursive', 'markdown', 'semantic'].includes(strategy);
+  const showSizeParams = ['character', 'recursive', 'markdown', 'page_markdown', 'semantic'].includes(strategy);
 
-  // Pre-select strategy from ES metadata when doc changes
+  // Pre-select strategy from ES metadata when doc changes.
+  // On remount with the same doc, restore the last-used strategy from the store.
   const esStrategy = doc?.chunking_strategy;
   useEffect(() => {
-    if (esStrategy) setStrategy(esStrategy);
-  }, [esStrategy]);
+    if (doc?.id && chunkingDocId === doc.id && chunkingStrategy) {
+      // Same doc remount — restore whatever strategy was last chunked
+      setStrategy(chunkingStrategy);
+    } else if (esStrategy) {
+      // New doc or no previous chunking — default to ES strategy
+      setStrategy(esStrategy);
+    }
+  }, [doc?.id, esStrategy]);
 
   // Disable chunk button when strategy matches ES-chunked strategy
   const isStrategyUnchanged = !!(esStrategy && strategy === esStrategy);
 
   const docId = doc?.id;
+  // True only when the evaluation running right now is for the currently viewed doc
+  const isEvaluatingThisDoc = isEvaluating && evalDocId === docId;
 
   useEffect(() => {
     if (docId) {
       fetchChunks(docId);
     }
   }, [docId, page, searchQuery, fetchChunks]);
+
+  const refreshStats = useCallback(async (id: number) => {
+    try {
+      const s = await getChunkStats(id);
+      setChunkStats(s.total > 0 ? s : null);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    setChunkStats(null);
+    if (docId) refreshStats(docId);
+  }, [docId]);
+
+  const autoEvalDocIdRef = useRef<number | null>(null);
+
+  // When ChunkTable remounts mid-evaluation the EventSource is lost.
+  // Poll stats every 2 s until all chunks are scored, then mark evaluation complete.
+  useEffect(() => {
+    if (!docId || !isEvaluating || evalDocId !== docId || evalEsRef.current) return;
+    const timer = setInterval(async () => {
+      try {
+        const s = await getChunkStats(docId);
+        setChunkStats(s.total > 0 ? s : null);
+        if (s.total > 0 && s.scored === s.total) {
+          setIsEvaluating(false);
+          setEvalDocId(null);
+          clearInterval(timer);
+        }
+      } catch { /* ignore */ }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [docId, isEvaluating, evalDocId]);
 
   const handleSearchSubmit = useCallback(() => {
     setSearch(localSearch);
@@ -361,7 +406,9 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
     if (!docId || isEvaluating) return;
     setIsEvaluating(true);
     setEvalProgress({ completed: 0, total: 0 });
+    setEvalDocId(docId);
     if (evalEsRef.current) { evalEsRef.current.close(); evalEsRef.current = null; }
+    const targetDocId = docId;
     const es = subscribeEvaluation(docId, (data: EvalResult) => {
       if (data.type === 'start') {
         setEvalProgress({ completed: 0, total: data.total || 0 });
@@ -374,25 +421,86 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
         setEvalProgress({ completed: data.completed || 0, total: data.total || 0 });
       } else if (data.type === 'done') {
         setIsEvaluating(false);
+        setEvalDocId(null);
         es.close();
         evalEsRef.current = null;
+        refreshStats(targetDocId);
       }
     });
-    es.onerror = (err) => { console.error('LLM evaluation SSE error:', err); setIsEvaluating(false); es.close(); evalEsRef.current = null; };
+    es.onerror = () => {
+      setIsEvaluating(false);
+      setEvalDocId(null);
+      es.close();
+      evalEsRef.current = null;
+    };
     evalEsRef.current = es;
   };
+
+  // Auto-start evaluation for freshly imported ES docs (0 scores document-wide)
+  useEffect(() => {
+    if (
+      !docId ||
+      doc?.source_type !== 'elasticsearch' ||
+      !chunkStats ||
+      chunkStats.total === 0 ||
+      chunkStats.scored > 0 ||
+      isEvaluating ||
+      autoEvalDocIdRef.current === docId
+    ) return;
+    autoEvalDocIdRef.current = docId;
+    startEvaluation();
+  }, [docId, doc?.source_type, chunkStats, isEvaluating]);
 
   const confirmChunk = async () => {
     setConfirmOpen(false);
     if (!docId) return;
     try {
-      await triggerChunking(docId, strategy, {
+      const asyncResult = await triggerChunking(docId, strategy, {
         chunk_size: chunkSize,
         chunk_overlap: chunkOverlap,
       });
-      // Small delay to ensure chunks are committed before evaluation starts
-      await new Promise((r) => setTimeout(r, 500));
-      startEvaluation();
+
+      if (asyncResult?.task_id) {
+        // Semantic chunking — subscribe to SSE progress stream
+        semanticStartTimeRef.current = Date.now();
+        setSemanticProgress({ pagesDone: 0, totalPages: 0 });
+        const token = localStorage.getItem('token');
+        const es = new EventSource(
+          `/api/documents/${docId}/chunk-status?task_id=${asyncResult.task_id}&token=${encodeURIComponent(token || '')}`,
+        );
+        semanticEsRef.current = es;
+
+        es.onmessage = async (e) => {
+          const data = JSON.parse(e.data);
+          if (data.pages_done !== undefined || data.total_pages !== undefined) {
+            setSemanticProgress({ pagesDone: data.pages_done ?? 0, totalPages: data.total_pages ?? 0 });
+          }
+          if (data.status === 'complete') {
+            es.close();
+            semanticEsRef.current = null;
+            setSemanticProgress(null);
+            useChunkStore.setState({ isChunking: false, page: 1, searchQuery: '' });
+            await useChunkStore.getState().fetchChunks(docId);
+            await new Promise((r) => setTimeout(r, 500));
+            startEvaluation();
+          } else if (data.status === 'error') {
+            es.close();
+            semanticEsRef.current = null;
+            setSemanticProgress(null);
+            useChunkStore.setState({ isChunking: false });
+          }
+        };
+        es.onerror = () => {
+          es.close();
+          semanticEsRef.current = null;
+          setSemanticProgress(null);
+          useChunkStore.setState({ isChunking: false });
+        };
+      } else {
+        // Synchronous strategies — evaluation can start immediately
+        await new Promise((r) => setTimeout(r, 500));
+        startEvaluation();
+      }
     } catch {
       // error handled by store
     }
@@ -456,15 +564,75 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
         <button
           style={{
             ...css.chunkBtn,
-            opacity: !docId || isChunking || isEvaluating || isStrategyUnchanged ? 0.45 : 1,
-            cursor: isStrategyUnchanged ? 'not-allowed' : (isChunking || isEvaluating ? 'wait' : 'pointer'),
+            opacity: !docId || isChunking || isEvaluatingThisDoc || isStrategyUnchanged ? 0.45 : 1,
+            cursor: isStrategyUnchanged ? 'not-allowed' : (isChunking || isEvaluatingThisDoc ? 'wait' : 'pointer'),
           }}
           onClick={handleChunk}
-          disabled={!docId || isChunking || isEvaluating || isStrategyUnchanged}
+          disabled={!docId || isChunking || isEvaluatingThisDoc || isStrategyUnchanged}
         >
-          {isChunking ? '処理中...' : isEvaluating ? `評価中 ${evalProgress.completed}/${evalProgress.total}` : isStrategyUnchanged ? '評価済み' : 'チャンク実行'}
+          {isChunking
+            ? semanticProgress
+              ? (() => {
+                  const { pagesDone, totalPages } = semanticProgress;
+                  const elapsed = (Date.now() - semanticStartTimeRef.current) / 1000;
+                  const etaStr = pagesDone > 0 && totalPages > 0
+                    ? ` 残り約${Math.max(1, Math.round(elapsed / pagesDone * (totalPages - pagesDone)))}秒`
+                    : '';
+                  return totalPages > 0
+                    ? `処理中... ${pagesDone}/${totalPages}ページ${etaStr}`
+                    : '処理中...';
+                })()
+              : '処理中...'
+            : isEvaluatingThisDoc
+              ? `評価中 ${evalProgress.completed}/${evalProgress.total}`
+              : isStrategyUnchanged ? '評価済み' : 'チャンク実行'}
         </button>
-        {chunks.length > 0 && docId && (
+        {semanticProgress && semanticProgress.totalPages > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '120px' }}>
+            <div style={{ flex: 1, height: '6px', background: 'var(--color-border)', borderRadius: '3px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${Math.round(semanticProgress.pagesDone / semanticProgress.totalPages * 100)}%`,
+                background: 'var(--color-accent)',
+                borderRadius: '3px',
+                transition: 'width 0.4s ease',
+              }} />
+            </div>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+              {Math.round(semanticProgress.pagesDone / semanticProgress.totalPages * 100)}%
+            </span>
+          </div>
+        )}
+        <AnimatePresence>
+          {chunkStats && chunkStats.scored > 0 && chunkStats.scored === chunkStats.total && !isEvaluatingThisDoc && !isChunking && (
+            <motion.div
+              key="chunk-stats"
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '4px 10px',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-xs)',
+                fontFamily: 'var(--font-mono)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-display)', letterSpacing: '0.3px' }}>RAG</span>
+              <span>平均 <strong>{chunkStats.avg_rag?.toFixed(1)}</strong></span>
+              <span style={{ color: 'var(--color-text-muted)' }}>中央値 <strong>{chunkStats.median_rag?.toFixed(1)}</strong></span>
+              <span style={{ color: 'var(--color-border)' }}>│</span>
+              <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-display)', letterSpacing: '0.3px' }}>FAQ</span>
+              <span>平均 <strong>{chunkStats.avg_faq?.toFixed(1)}</strong></span>
+              <span style={{ color: 'var(--color-text-muted)' }}>中央値 <strong>{chunkStats.median_faq?.toFixed(1)}</strong></span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {selectedChunk && docId && isStrategyUnchanged && (
           <button
             style={{
               padding: '6px 12px',
@@ -478,10 +646,17 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
               transition: 'all var(--transition-normal)',
               letterSpacing: '0.3px',
             }}
-            onClick={() => clearChunks(docId)}
-            title="チャンクをデータベースから削除"
+            onClick={async () => {
+              if (!selectedChunk) return;
+              const confirmed = window.confirm(
+                `チャンク #${selectedChunk.chunk_index} を削除しますか？\nこの操作はデータビューアとElasticsearchの両方から永久に削除されます。`,
+              );
+              if (!confirmed) return;
+              await removeChunk(selectedChunk.id);
+            }}
+            title="選択中のチャンクをデータビューアとElasticsearchから完全削除"
           >
-            削除
+            削除（ES DBから完全削除）
           </button>
         )}
         <input
