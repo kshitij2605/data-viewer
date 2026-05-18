@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     minio_bucket: str = "rag-anything"
     minio_secure: bool = False
 
+    # LDAP (Active Directory)
+    ldap_url: str = ""
+    ldap_bind_dn: str = ""
+    ldap_bind_credentials: str = ""
+    ldap_user_search_base: str = ""
+    ldap_search_filter: str = "(sAMAccountName={{username}})"
+    ldap_starttls: bool = False
+    ldap_tls_reject_unauthorized: bool = False
+    ldap_login_uses_username: bool = True
+
     class Config:
         env_file = ".env"
 
