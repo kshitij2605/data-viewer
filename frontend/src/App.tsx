@@ -18,6 +18,7 @@ import TablesOnlyView from './components/TablesOnlyView.tsx';
 import ImagesOnlyView from './components/ImagesOnlyView.tsx';
 import AIReviewView from './components/AIReviewView.tsx';
 import PdfViewer from './components/PdfViewer.tsx';
+import SettingsPanel from './components/SettingsPanel.tsx';
 import { getPageMarkdown } from './api/documents.ts';
 import { withToken } from './api/client.ts';
 import { subscribeEvaluation } from './api/chunks.ts';
@@ -71,6 +72,9 @@ function App() {
   });
   // PDF viewer state
   const [pdfViewer, setPdfViewer] = useState({ open: false });
+
+  // Settings panel state
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -306,7 +310,7 @@ function App() {
           </AnimatePresence>
         </main>
       </div>
-      <Footer />
+      <Footer onSettingsClick={() => setSettingsOpen(true)} />
 
       {/* Global modals */}
       <ImageModal
@@ -328,6 +332,10 @@ function App() {
         open={pdfViewer.open}
         documentId={selectedDoc?.id ?? null}
         onClose={() => setPdfViewer({ open: false })}
+      />
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
       />
     </div>
   );

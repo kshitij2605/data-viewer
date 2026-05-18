@@ -67,7 +67,11 @@ const css = {
   },
 } as const;
 
-export default function Footer() {
+interface FooterProps {
+  onSettingsClick: () => void;
+}
+
+export default function Footer({ onSettingsClick }: FooterProps) {
   const user = useAuthStore((s) => s.user);
   const initial = user?.display_name?.charAt(0) ?? user?.username?.charAt(0) ?? '';
 
@@ -92,6 +96,7 @@ export default function Footer() {
         <button
           style={css.iconBtn}
           title="設定"
+          onClick={onSettingsClick}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-surface-inset)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
         >

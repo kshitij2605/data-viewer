@@ -66,6 +66,10 @@ export async function deleteDocument(id: number): Promise<void> {
   await client.delete(`/documents/${id}`);
 }
 
+export async function deleteAllDocuments(): Promise<void> {
+  await client.delete('/documents/all');
+}
+
 export async function listDocuments(): Promise<Document[]> {
   const res = await client.get<Document[]>('/documents');
   return res.data;

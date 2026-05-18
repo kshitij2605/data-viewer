@@ -10,6 +10,7 @@ interface DocumentState {
   viewMode: ViewMode;
   loadDocuments: () => Promise<void>;
   deleteDocument: (id: number) => Promise<void>;
+  deleteAllDocuments: () => Promise<void>;
   setDocument: (doc: Document | null) => void;
   setViewMode: (mode: ViewMode) => void;
 }
@@ -30,6 +31,11 @@ export const useDocumentStore = create<DocumentState>((set) => ({
       documents: state.documents.filter((d) => d.id !== id),
       selectedDocument: state.selectedDocument?.id === id ? null : state.selectedDocument,
     }));
+  },
+
+  deleteAllDocuments: async () => {
+    await docApi.deleteAllDocuments();
+    set({ documents: [], selectedDocument: null });
   },
 
   setDocument: (doc: Document | null) => {

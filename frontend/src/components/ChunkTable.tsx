@@ -19,6 +19,7 @@ const STRATEGIES = [
   { value: 'recursive', label: 'Recursive' },
   { value: 'semantic', label: 'Semantic' },
   { value: 'markdown', label: 'Markdown' },
+  { value: 'page_markdown', label: 'Page + Markdown' },
   { value: 'page', label: 'Page-wise' },
 ];
 
@@ -547,7 +548,7 @@ export default function ChunkTable({ onChunkSelect }: ChunkTableProps) {
                     >
                       <td style={css.td}>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-text-faint)', fontWeight: 500 }}>
-                          {chunk.chunk_index + 1}
+                          {chunk.chunk_index}
                         </span>
                       </td>
                       <td style={css.td}>

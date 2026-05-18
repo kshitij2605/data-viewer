@@ -35,6 +35,7 @@ class DocumentOut(BaseModel):
     source_type: Optional[str] = "local"
     es_index: Optional[str] = None
     es_parent_doc_id: Optional[str] = None
+    chunking_strategy: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -105,6 +106,16 @@ async def load_document(
     return doc
 
 
+@router.delete("/all", status_code=204)
+def delete_all_documents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete all documents for the current user. Cascade deletes all chunks, edits, feedback, and images."""
+    db.query(Document).filter(Document.loaded_by_user_id == current_user.id).delete()
+    db.commit()
+
+
 @router.delete("/{document_id}", status_code=204)
 def delete_document(
     document_id: int,
@@ -169,6 +180,7 @@ def get_document(
         "num_images": doc.num_images,
         "num_tables": doc.num_tables,
         "source_type": doc.source_type or "local",
+        "chunking_strategy": doc.chunking_strategy,
         "metadata": metadata,
         "parsing_metrics": parsing_metrics,
     }

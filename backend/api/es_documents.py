@@ -67,7 +67,7 @@ def list_indices(current_user: User = Depends(get_current_user)):
     results = []
     for idx in stats:
         name = idx.get("index", "")
-        if name.startswith("."):
+        if not name.startswith("rag-anything-glmhybridocr-"):
             continue
         results.append(ESIndex(
             index_name=name,
