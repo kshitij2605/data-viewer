@@ -1,0 +1,17 @@
+services:
+  data-viewer:
+    build: .
+    image: data-viewer-rag-anything:latest
+    container_name: data-viewer
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      # Override DB_PATH and thumbnail dir to point inside the mounted volume
+      DB_PATH: /app/data/data_viewer.db
+      THUMBNAIL_DIR: /app/data/thumbnails
+    volumes:
+      # Persist SQLite database and page thumbnails across restarts
+      - ./data:/app/data

@@ -52,7 +52,16 @@ The Data Viewer application is organized into two primary layers: **backend** (P
 | Thumbnail Panel | `frontend/src/components/ThumbnailPanel.tsx` | Page thumbnail grid with click-to-scroll |
 | Tables Only View | `frontend/src/components/TablesOnlyView.tsx` | Table image gallery with extracted content overlay |
 | Images Only View | `frontend/src/components/ImagesOnlyView.tsx` | Categorized image gallery |
+| Text Only View | `frontend/src/components/TextOnlyView.tsx` | Text-only paragraphs grouped by page |
 | AI Review View | `frontend/src/components/AIReviewView.tsx` | AI strategy recommendation display |
+| Diff View | `frontend/src/components/DiffView.tsx` | Side-by-side diff display for chunk edits |
+| Feedback Picker | `frontend/src/components/FeedbackPicker.tsx` | Emoji feedback selector (😍 💩 😐) |
+| Folder Load Dialog | `frontend/src/components/FolderLoadDialog.tsx` | Server directory browser for document loading |
+| Header | `frontend/src/components/Header.tsx` | Top bar with app title and current user info |
+| Footer | `frontend/src/components/Footer.tsx` | Bottom bar with settings icon |
+| Login Page | `frontend/src/components/LoginPage.tsx` | Login form with username/password |
+| PDF Viewer | `frontend/src/components/PdfViewer.tsx` | Embedded PDF viewer for layout PDFs |
+| Settings Panel | `frontend/src/components/SettingsPanel.tsx` | Settings modal (delete all docs, logout) |
 
 ---
 
@@ -181,99 +190,276 @@ External systems (read-only from Data Viewer's perspective):
 
 ### Sequence 1: Load document from local folder
 
-```
-User clicks folder icon
-  → FolderBrowseDialog opens
-  → User selects a folder path
-  → POST /api/documents/load {folder_path}
-    → backend/documents.py: load_document()
-      1. Read metadata.json from folder
-      2. Create Document row (source_type="local")
-      3. Generate page thumbnails (pdf_thumbnails.py)
-      4. _launch_ai_review() → asyncio.create_task
-        a. llm_eval.py: analyze_document_structure() — Phase 1
-        b. llm_eval.py: generate_strategy_recommendation() — Phase 2
-      5. Return Document to frontend
-    → Frontend: setDocument() + loadDocuments()
-  → Document appears in sidebar
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as SQLite
+    participant FS as Local FS
+
+    U->>FE: Click folder icon
+    FE->>FE: Open FolderBrowseDialog
+    U->>FE: Select folder path
+    FE->>BE: POST /api/documents/load {folder_path}
+    BE->>FS: Read metadata.json from folder
+    BE->>DB: Create Document row (source_type="local")
+    BE->>FS: Generate page thumbnails (pdf_thumbnails.py)
+    BE->>BE: _launch_ai_review() - async task
+    Note over BE: Phase 1: llm_eval.py<br/>analyze_document_structure()
+    Note over BE: Phase 2: llm_eval.py<br/>generate_strategy_recommendation()
+    BE->>FE: Return Document
+    FE->>FE: setDocument() + loadDocuments()
+    FE->>U: Document appears in sidebar
 ```
 
 ### Sequence 2: Import document from Elasticsearch
 
-```
-User clicks "+" icon in sidebar
-  → ESImportDialog opens
-  → GET /api/es/indices
-    → es_documents.py: list_indices()
-      → es_client.py: get_es_client()
-      → es.indices.get(index="_all") → filter hidden
-      → Return [{index_name, doc_count}]
-  → User selects index
-  → GET /api/es/documents?index=X
-    → es_documents.py: list_es_documents()
-      → es.search() aggregation on parent_doc_id
-      → Mark already_imported by checking local SQLite
-      → Return [ESDocument]
-  → User selects docs and clicks "Import"
-  → POST /api/es/documents/{parent_doc_id}/import?index=X
-    → es_documents.py: import_document()
-      1. es.search() with search_after pagination → all chunks
-      2. Extract metadata from first chunk
-      3. Fetch parsing_metrics.json from MinIO
-      4. Create Document (source_type="elasticsearch") + Chunk rows
-      5. Create ChunkImage rows from minio_metadata.image_paths
-      6. _launch_ai_review() → asyncio.create_task
-      7. Return ImportResult
-    → Frontend: loadDocuments() → setDocument(lastResult)
-  → Document appears in sidebar (served from MinIO transparently)
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant BE as Backend
+    participant ES as Elasticsearch
+    participant DB as SQLite
+    participant MinIO as MinIO
+
+    U->>FE: Click "+" icon in sidebar
+    FE->>FE: Open ESImportDialog
+    FE->>BE: GET /api/es/indices
+    BE->>ES: es.indices.get(index="_all")
+    ES-->>BE: Return [{index_name, doc_count}]
+    BE-->>FE: [{index_name, doc_count}]
+    U->>FE: Select index
+    FE->>BE: GET /api/es/documents?index=X
+    BE->>ES: es.search() aggregation on parent_doc_id
+    BE->>DB: Check already_imported
+    ES-->>BE: [ESDocument]
+    BE-->>FE: [ESDocument]
+    U->>FE: Select docs and click "Import"
+    FE->>BE: POST /api/es/documents/{parent_doc_id}/import?index=X
+    BE->>ES: es.search() with search_after → all chunks
+    BE->>MinIO: Fetch parsing_metrics.json
+    BE->>DB: Create Document + Chunk rows
+    BE->>BE: _launch_ai_review() - async task
+    BE-->>FE: ImportResult
+    FE->>FE: loadDocuments() → setDocument(lastResult)
+    FE->>U: Document appears in sidebar
 ```
 
 ### Sequence 3: Chunk document with strategy
 
-```
-User selects document → clicks strategy dropdown → sets params → clicks "Execute"
-  → POST /api/documents/{id}/chunk {strategy, chunk_size, chunk_overlap}
-    → chunks.py: create_chunks()
-      1. Fetch full markdown (MinIO for ES docs, local FS for local docs)
-      2. chunking.py: apply_strategy(strategy, markdown, params)
-        → CharacterTextSplitter | RecursiveCharacterTextSplitter
-          | MarkdownHeaderTextSplitter | SemanticChunker | PageWiseSplitter
-      3. DELETE existing chunks CASCADE (chunk_edits, feedback, images also deleted)
-      4. INSERT new Chunk rows with text, page_number, chunk_index
-      5. Extract image refs from each chunk → ChunkImage rows
-      6. Return chunk list to frontend
-    → Frontend: fetchChunks(id) → populate chunkStore
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as SQLite
+    participant MinIO as MinIO
+    participant FS as Local FS
+    participant CS as chunking.py
+
+    U->>FE: Select document, choose strategy, set params, click "Execute"
+    FE->>BE: POST /api/documents/{id}/chunk {strategy, chunk_size, chunk_overlap}
+    BE->>BE: chunks.py: create_chunks()
+    alt source_type == "elasticsearch"
+        BE->>MinIO: Fetch full markdown
+    else source_type == "local"
+        BE->>FS: Fetch full markdown
+    end
+    BE->>CS: apply_strategy(strategy, markdown, params)
+    Note over CS: CharacterTextSplitter |<br/>RecursiveCharacterTextSplitter |<br/>MarkdownHeaderTextSplitter |<br/>SemanticChunker |<br/>PageWiseSplitter
+    CS-->>BE: Return chunk list
+    BE->>DB: DELETE existing chunks CASCADE
+    BE->>DB: INSERT new Chunk rows
+    BE->>DB: Extract image refs → ChunkImage rows
+    BE-->>FE: Return chunk list
+    FE->>FE: fetchChunks(id) → populate chunkStore
+    FE->>U: Display chunks
 ```
 
 ### Sequence 4: LLM evaluation (RAG/FAQ scoring)
 
-```
-[Auto-triggered after chunking, or user clicks "Evaluate"]
-  → GET /api/documents/{id}/evaluate-chunks (SSE)
-    → chunks.py: evaluate_chunks_sse()
-      1. For each chunk not yet evaluated:
-        → asyncio.create_task(eval_one(chunk_id, chunk_text, page_thumbnail_url))
-      2. eval_one():
-        a. llm_eval.py: score_rag_faq(chunk_text, page_num, doc_id) — HTTP call to Qwen
-        b. llm_eval.py: ai_suggestion(chunk_text, page_thumbnail_base64, page_num) — HTTP call to Qwen
-        c. Push results to asyncio.Queue
-      3. SSE generator reads from Queue, yields Server-Sent Events
-  → Frontend EventSource receives events:
-    → chunkStore.updateChunkEval(chunk_id, {rag_score, faq_score, suggestion})
-    → ChunkTable cells update in real-time
-  → When all done: SSE sends {type: "done"}
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant BE as Backend
+    participant Qwen as Qwen/Qwen3.5-122B-A10B<br/>(llm-host:9000)
+
+    Note over U,FE: Auto-triggered after chunking, or user clicks "Evaluate"
+    U->>FE: Click "Evaluate" button
+    FE->>BE: GET /api/documents/{id}/evaluate-chunks (SSE)
+    BE->>BE: chunks.py: evaluate_chunks_sse()
+    BE->>BE: For each unevaluated chunk:<br/>asyncio.create_task(eval_one(...))
+    loop For each chunk
+        BE->>Qwen: score_rag_faq() - RAG/FAQ scoring
+        Qwen-->>BE: {rag_score, faq_score}
+        BE->>Qwen: ai_suggestion() - multimodal comparison
+        Qwen-->>BE: suggestion text
+        BE->>BE: Push results to asyncio.Queue
+    end
+    BE-->>FE: SSE Server-Sent Events
+    FE->>FE: chunkStore.updateChunkEval(chunk_id, scores)
+    FE->>FE: ChunkTable cells update in real-time
+    Note over FE: When all done: SSE sends {type: "done"}
 ```
 
 ### Sequence 5: Re-chunk ES document (from MinIO markdown)
 
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant BE as Backend
+    participant MinIO as MinIO
+    participant DB as SQLite
+
+    U->>FE: Change strategy on ES-imported doc, click "Execute"
+    FE->>BE: POST /api/documents/{id}/chunk {strategy, ...}
+    BE->>BE: Same flow as Sequence 3
+    BE->>MinIO: fetch_minio_text({prefix}/markdown/{pdf_name}_with_captions.mmd)
+    MinIO-->>BE: Return markdown content
+    BE->>DB: DELETE existing chunks CASCADE
+    Note over DB: feedback lost (user warned)
+    BE->>DB: INSERT new Chunk rows
+    BE->>FE: Return chunk list
+    Note over FE: Evaluation auto-triggers again (Sequence 4)
 ```
-User changes strategy on ES-imported document → clicks "Execute"
-  → POST /api/documents/{id}/chunk {strategy, ...}
-    → Same flow as Sequence 3, but markdown is fetched from MinIO:
-      → minio_client.fetch_minio_text({prefix}/markdown/{pdf_name}_with_captions.mmd)
-    → Existing chunks deleted CASCADE (feedback lost — user warned implicitly)
-    → New chunks stored in SQLite
-    → Evaluation auto-triggers again (Sequence 4)
+
+---
+
+## System Architecture Diagram
+
+### High-Level System Architecture
+
+```mermaid
+ flowchart TB
+    subgraph External["External Systems"]
+        ES["Elasticsearch<br/>(rag_anything)"]
+        MinIO["MinIO<br/>(Images, Tables, Markdown)"]
+        QwenLLM["Qwen/Qwen3.5-122B-A10B<br/>(llm-host:9000)"]
+        BGEEmbed["BGE-M3 Embedding<br/>(embedding-host:8000)"]
+    end
+
+    subgraph Client["Client Browser"]
+        FE["React Frontend<br/>(Port 5173)"]
+    end
+
+    subgraph Server["FastAPI Backend<br/>(Port 8085)"]
+        API["API Routes<br/>(auth, documents, chunks, files, etc.)"]
+        Services["Services<br/>(chunking, llm_eval, embedding, markdown_parser)"]
+        DB["SQLite Database<br/>(WAL mode)"]
+    end
+
+    FE <--> API["HTTP/REST + SSE"]
+    API <--> DB["SQLite queries"]
+    API <--> Services
+    Services <--> ES["ES queries"]
+    Services <--> MinIO["Object storage"]
+    Services <--> QwenLLM["LLM API calls"]
+    Services <--> BGEEmbed["Embedding API"]
+```
+
+### Component Interaction Overview
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as React Frontend
+    participant BE as FastAPI Backend
+    participant DB as SQLite
+    participant ES as Elasticsearch
+    participant MinIO as MinIO
+    participant LLM as Qwen LLM
+    participant Embed as BGE-M3
+
+    U->>FE: Login / Load Document
+    FE->>BE: HTTP Request
+    BE->>DB: Query/Insert
+    DB-->>BE: Result
+    BE-->>FE: JSON Response
+
+    Note over FE,BE: Document Viewing Flow
+    FE->>BE: GET /api/documents/{id}/markdown
+    alt Local document
+        BE->>FS: Read markdown file
+    else ES document
+        BE->>MinIO: Fetch from MinIO
+    end
+    FS-->>BE: File content
+    MinIO-->>BE: File content
+    BE-->>FE: Markdown content
+
+    Note over FE,BE: Chunking Flow
+    FE->>BE: POST /api/documents/{id}/chunk
+    BE->>BE: Apply chunking strategy
+    BE->>Embed: Get embeddings (semantic)
+    Embed-->>BE: Embedding vectors
+    BE->>DB: Insert chunks
+
+    Note over FE,BE: LLM Evaluation Flow
+    FE->>BE: GET /api/documents/{id}/evaluate-chunks (SSE)
+    loop For each chunk
+        BE->>LLM: score_rag_faq()
+        LLM-->>BE: {rag_score, faq_score}
+        BE->>LLM: ai_suggestion()
+        LLM-->>BE: suggestion
+        BE-->>FE: SSE Event
+    end
+
+    Note over FE,BE: ES Import Flow
+    FE->>BE: GET /api/es/indices
+    BE->>ES: List indices
+    FE->>BE: POST /api/es/documents/{id}/import
+    BE->>ES: Fetch documents
+    BE->>MinIO: Fetch metadata
+    BE->>DB: Create document + chunks
+```
+
+### Data Flow Diagram
+
+```mermaid
+flowchart LR
+    subgraph Input["Input Sources"]
+        LocalFolder["Local Folder<br/>(metadata.json, .mmd)"]
+        ESIndex["Elasticsearch Index<br/>(rag_anything)"]
+    end
+
+    subgraph Processing["Data Viewer Processing"]
+        Load["Load Document"]
+        Chunk["Apply Chunking"]
+        Evaluate["LLM Evaluation"]
+        Store["Store in SQLite"]
+    end
+
+    subgraph ExternalServices["External Services"]
+        MinIO_Download["MinIO<br/>(Download images/tables)"]
+        Qwen_Score["Qwen LLM<br/>(Scoring)"]
+        BGE_Embed["BGE-M3<br/>(Embeddings)"]
+    end
+
+    subgraph Output["Output Views"]
+        ChunkView["Chunk View<br/>(Edit, Feedback)"]
+        MarkdownView["Markdown View"]
+        TablesView["Tables View"]
+        ImagesView["Images View"]
+        AIReviewView["AI Review View"]
+    end
+
+    LocalFolder --> Load
+    ESIndex --> Load
+    Load --> MinIO_Download
+    Load --> Chunk
+    Chunk --> BGE_Embed
+    Chunk --> Evaluate
+    Evaluate --> Qwen_Score
+    Evaluate --> Store
+    Store --> ChunkView
+    Store --> MarkdownView
+    Store --> TablesView
+    Store --> ImagesView
+    Store --> AIReviewView
 ```
 
 ---

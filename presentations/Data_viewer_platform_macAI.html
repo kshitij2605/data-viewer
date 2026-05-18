@@ -1,11 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Viewer Platform — Intelligent Document Analysis Platform</title>
-
-    <!-- Fonts: Clash Display + Satoshi from Fontshare -->
+<!-- Fonts: Clash Display + Satoshi from Fontshare -->
     <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@200,300,400,500,600,700&f[]=satoshi@300,400,500,700&display=swap">
 
     <style>
@@ -230,6 +223,19 @@
             border: 1px solid var(--border-glow);
             box-shadow: 0 2px 12px var(--accent-glow);
         }
+
+        /* Card content padding */
+        .card.neon-border {
+            padding: clamp(0.75rem, 1.5vw, 1.25rem);
+        }
+        .card.neon-border .bullet-list {
+            padding-left: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .card.neon-border ul.bullet-list li {
+            margin-bottom: 0.25rem;
+        }
+
 
         /* ===========================================
            SLIDE COUNTER (top-left)
@@ -914,11 +920,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 2 — THE PROBLEM: DATA QUALITY
          =========================================== -->
     <section class="slide content-slide" id="slide-1">
-        <span class="slide-num"><span class="current">02</span> / 24</span>
+        <span class="slide-num"><span class="current">02</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">The <span class="accent">Problem</span></h2>
             <p class="reveal">ドキュメント・Webデータの構造化は、AIシステムの基盤です。しかし解析品質にばらつきがあり、下流タスク全体に影響を及ぼします。<span class="en-inline">Structuring document and web data is the foundation of AI systems. But parsing quality varies wildly, impacting every downstream task.</span></p>
@@ -942,11 +949,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 3 — WHY IT MATTERS: DOWNSTREAM IMPACT
          =========================================== -->
     <section class="slide content-slide" id="slide-2">
-        <span class="slide-num"><span class="current">03</span> / 24</span>
+        <span class="slide-num"><span class="current">03</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Why It <span class="accent">Matters</span></h2>
             <p class="reveal">低品質な構造化データは、RAGだけでなくAIパイプライン全体に波及します。<span class="en-inline">Poor quality structured data doesn't just break RAG — it cascades across the entire AI pipeline.</span></p>
@@ -970,11 +978,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 4 — SECTION: EXISTING SOLUTIONS
          =========================================== -->
     <section class="slide section-slide" id="slide-3">
-        <span class="slide-num"><span class="current">04</span> / 24</span>
+        <span class="slide-num"><span class="current">04</span> / 32</span>
         <div class="slide-content">
             <span class="section-label reveal">01</span>
             <h2 class="reveal">Existing Solutions</h2>
@@ -982,11 +991,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 4 — TASUKI ANNOTATION
          =========================================== -->
     <section class="slide content-slide" id="slide-4">
-        <span class="slide-num"><span class="current">05</span> / 24</span>
+        <span class="slide-num"><span class="current">05</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">TASUKI <span class="accent">Annotation</span></h2>
             <p class="reveal" style="margin-bottom: clamp(0.25rem, 0.5vh, 0.5rem);">ソフトバンクの生成AI向けデータ構造化サービス — 人手と自動化のハイブリッドでRAG用ドキュメントを整備。<span class="en-inline">SoftBank's managed data structuring service for generative AI — a hybrid human + automation approach to prepare documents for RAG.</span></p>
@@ -1021,11 +1031,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 5 — SCALE AI
          =========================================== -->
     <section class="slide content-slide" id="slide-5">
-        <span class="slide-num"><span class="current">06</span> / 24</span>
+        <span class="slide-num"><span class="current">06</span> / 32</span>
         <div class="slide-content">
             <div class="slide-header-with-img reveal">
                 <div class="header-text">
@@ -1055,11 +1066,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 6 — AWS SAGEMAKER GROUND TRUTH
          =========================================== -->
     <section class="slide content-slide" id="slide-6">
-        <span class="slide-num"><span class="current">07</span> / 24</span>
+        <span class="slide-num"><span class="current">07</span> / 32</span>
         <div class="slide-content">
             <div class="slide-header-with-img reveal">
                 <div class="header-text">
@@ -1090,11 +1102,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 7 — GAPS IN CURRENT SOLUTIONS
          =========================================== -->
     <section class="slide content-slide" id="slide-7">
-        <span class="slide-num"><span class="current">08</span> / 24</span>
+        <span class="slide-num"><span class="current">08</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Gaps in <span class="accent">Current Approaches</span></h2>
             <p class="reveal">TASUKI・Scale AI・SageMaker Ground Truthなどのマネージドサービスは構造化を解決しますが、解析ワークフローの直接的な制御は提供しません。<span class="en-inline">Managed services like TASUKI, Scale AI, and SageMaker Ground Truth solve structuring but leave teams without direct control over the parsing analysis workflow.</span></p>
@@ -1118,11 +1131,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 6 — SECTION: OUR SOLUTION
          =========================================== -->
     <section class="slide section-slide" id="slide-8">
-        <span class="slide-num"><span class="current">09</span> / 24</span>
+        <span class="slide-num"><span class="current">09</span> / 32</span>
         <div class="slide-content">
             <span class="section-label reveal">02</span>
             <h2 class="reveal">Our Solution</h2>
@@ -1130,22 +1144,24 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 7 — PLATFORM INTRO
          =========================================== -->
     <section class="slide content-slide" id="slide-9">
-        <span class="slide-num"><span class="current">10</span> / 24</span>
+        <span class="slide-num"><span class="current">10</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Data Viewer <span class="accent">Platform</span></h2>
             <p class="reveal">先週の議論と地主さんのフィードバックを基に、今週Data Viewer Platformを開発しました。RAG・FAQシステム向けに構築された、ドキュメント解析出力の読込・表示・チャンキング・評価・アノテーションを行うフルスタックプラットフォームです。<span class="en-inline">Based on last week's discussions and Jinushi-san's feedback, this week we developed Data Viewer Platform. A full-stack platform for loading, viewing, chunking, evaluating, and annotating document parsing outputs — built for teams working with RAG and FAQ systems.</span></p>
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 8 — PLATFORM FEATURES
          =========================================== -->
     <section class="slide content-slide" id="slide-10">
-        <span class="slide-num"><span class="current">11</span> / 24</span>
+        <span class="slide-num"><span class="current">11</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Key <span class="accent">Features</span></h2>
             <div class="feature-grid" style="margin-top: clamp(0.3rem, 1vh, 0.75rem);">
@@ -1183,11 +1199,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 8 — ARCHITECTURE FLOW
          =========================================== -->
     <section class="slide content-slide" id="slide-11">
-        <span class="slide-num"><span class="current">12</span> / 24</span>
+        <span class="slide-num"><span class="current">12</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">System <span class="accent">Architecture</span></h2>
             <p class="reveal">TypeScript + Pythonのフルスタック構成、リアルタイムストリーミング評価<span class="en-inline">Full-stack TypeScript + Python with real-time streaming evaluation</span></p>
@@ -1222,11 +1239,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 8b — DUAL DATA SOURCE
          =========================================== -->
     <section class="slide content-slide" id="slide-11b">
-        <span class="slide-num"><span class="current">13</span> / 24</span>
+        <span class="slide-num"><span class="current">13</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Dual <span class="accent">Data Source</span></h2>
             <p class="reveal">ローカルフォルダまたはElasticsearch+MinIOの2つのインポートモード<span class="en-inline">Two import modes: local folder or Elasticsearch + MinIO</span></p>
@@ -1265,11 +1283,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 9 — CHUNKING STRATEGIES
          =========================================== -->
     <section class="slide content-slide" id="slide-12">
-        <span class="slide-num"><span class="current">14</span> / 24</span>
+        <span class="slide-num"><span class="current">14</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">5 Chunking <span class="accent">Strategies</span></h2>
             <p class="reveal">ドキュメントタイプごとに最適なアプローチを選択 — パラメータを完全制御<span class="en-inline">Choose the right approach for each document type — with full parameter control</span></p>
@@ -1312,11 +1331,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 10 — LLM EVALUATION
          =========================================== -->
     <section class="slide content-slide" id="slide-13">
-        <span class="slide-num"><span class="current">15</span> / 24</span>
+        <span class="slide-num"><span class="current">15</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">LLM-Powered <span class="accent">Evaluation</span></h2>
             <p class="reveal">各チャンクをQwen 3.5が5つの基準でスコアリング（0〜10）— SSEでUIにリアルタイム配信。<span class="en-inline">Every chunk is scored by Qwen 3.5 on 5 criteria (0–10) — streamed to the UI in real-time via SSE.</span></p>
@@ -1355,11 +1375,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 11 — VIEW MODES
          =========================================== -->
     <section class="slide content-slide" id="slide-14">
-        <span class="slide-num"><span class="current">16</span> / 24</span>
+        <span class="slide-num"><span class="current">16</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">4 Specialized <span class="accent">View Modes</span></h2>
             <div class="feature-grid" style="margin-top: clamp(0.3rem, 1vh, 0.75rem); grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));">
@@ -1387,11 +1408,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 12 — HUMAN FEEDBACK
          =========================================== -->
     <section class="slide content-slide" id="slide-15">
-        <span class="slide-num"><span class="current">17</span> / 24</span>
+        <span class="slide-num"><span class="current">17</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Human-in-the-Loop <span class="accent">Feedback</span></h2>
             <p class="reveal">レビュアーが各チャンクに構造化フィードバックを付与し、継続的な改善サイクルを構築します。<span class="en-inline">Reviewers annotate each chunk with structured feedback — creating a continuous improvement loop.</span></p>
@@ -1420,11 +1442,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 13 — AI REVIEW
          =========================================== -->
     <section class="slide content-slide" id="slide-16">
-        <span class="slide-num"><span class="current">18</span> / 24</span>
+        <span class="slide-num"><span class="current">18</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Two-Phase AI <span class="accent">Strategy Advisor</span></h2>
             <p class="reveal">単一プロンプトでは大きなテーブルを見落とし汎用的な助言に。64kコンテキストを活用した2段階パイプラインで解決。<span class="en-inline">A single-prompt approach failed — the LLM missed large tables and produced generic advice. We solved this with a two-phase pipeline using the full 64k context window.</span></p>
@@ -1448,11 +1471,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 14 — LIMITATIONS
          =========================================== -->
     <section class="slide content-slide" id="slide-17">
-        <span class="slide-num"><span class="current">19</span> / 24</span>
+        <span class="slide-num"><span class="current">19</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Scoring <span class="accent">Limitations</span></h2>
             <p class="reveal">RAGおよびFAQ有用性スコアは方向性の指標として有用ですが、権威ある指標とするには2つの課題が残っています。<span class="en-inline">The RAG and FAQ usefulness scores are useful directional signals, but two gaps remain before they can be treated as authoritative.</span></p>
@@ -1471,11 +1495,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 15 — COHEN'S KAPPA
          =========================================== -->
     <section class="slide content-slide" id="slide-18">
-        <span class="slide-num"><span class="current">20</span> / 24</span>
+        <span class="slide-num"><span class="current">20</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Cohen's <span class="accent">Kappa</span></h2>
             <p class="reveal">2人の評価者が偶然を超えてどの程度一致するかを測る統計的信頼性指標。<span class="en-inline">A statistical measure of inter-rater reliability — how much two raters agree beyond what chance alone would predict.</span></p>
@@ -1512,11 +1537,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 16 — COMPARISON
          =========================================== -->
     <section class="slide content-slide" id="slide-19">
-        <span class="slide-num"><span class="current">21</span> / 24</span>
+        <span class="slide-num"><span class="current">21</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">How We <span class="accent">Compare</span></h2>
             <table class="compare-table reveal" style="margin-top: clamp(0.3rem, 1vh, 0.75rem);">
@@ -1563,11 +1589,285 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
+         SLIDE 20 — SECTION: TASKI SYSTEM ENHANCEMENTS
+         =========================================== -->
+    <section class="slide section-slide" id="slide-20">
+        <span class="slide-num"><span class="current">22</span> / 32</span>
+        <div class="slide-content">
+            <div class="section-label reveal">Next Chapter</div>
+            <h2 class="reveal">TASKI System<br><span class="accent">Enhancements</span></h2>
+            <p class="section-desc reveal">既存システムを超えるための拡張機能と改善提案<span class="en-inline">Proposed enhancements to exceed current system capabilities</span></p>
+        </div>
+    </section>
+
+
+<!-- ===========================================
+         SLIDE 21 — TASKI: PROPOSED ENHANCEMENTS
+         =========================================== -->
+    <section class="slide content-slide" id="slide-21">
+        <span class="slide-num"><span class="current">23</span> / 32</span>
+        <div class="slide-content">
+            <h2 class="reveal">TASKI Features: <span class="accent">Proposed Enhancements</span></h2>
+            <p class="reveal">Edit, Graph Structuring, RE-OCR<span class="en-inline">Edit, Graph Structuring, RE-OCR</span></p>
+            <div class="two-col reveal" style="margin-top: clamp(0.5rem, 1.5vh, 1rem); gap: clamp(1rem, 2vw, 1.5rem);">
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">✏️</span>
+                        <h3>Edit</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>Markdown (.md) ファイルの編集機能<span class="en-inline"> — Markdown file editing functionality</span></li>
+                        <li>編集はMarkdown・PDFファイルに限定<span class="en-inline"> — Editing limited to Markdown and PDF files</span></li>
+                        <li>専用タブによる大規模Dedicatedビューでの編集<span class="en-inline"> — Large Dedicated view editing in dedicated tab</span></li>
+                    </ul>
+                </div>
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">📊</span>
+                        <h3>Graph Structuring</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>グラフの数値データを表形式に変換<span class="en-inline"> — Convert graph numerical data to tabular format</span></li>
+                        <li>洞察を1〜2文のキャプションで補足<span class="en-inline"> — Supplement with 1–2 sentence captions</span></li>
+                    </ul>
+                </div>
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">🔄</span>
+                        <h3>RE-OCR</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>PDF選択領域の再OCR実行<span class="en-inline"> — Re-OCR execution for selected PDF areas</span></li>
+                        <li>選択領域のテキスト精緻化<span class="en-inline"> — Text refinement for selected areas</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+<!-- ===========================================
+         SLIDE 22 — ADDITIONAL IMPROVEMENTS (Part 1)
+         =========================================== -->
+    <section class="slide content-slide" id="slide-22b">
+        <span class="slide-num"><span class="current">24</span> / 32</span>
+        <div class="slide-content">
+            <h2 class="reveal">Additional <span class="accent">Improvements</span> (1/2)</h2>
+            <p class="reveal">システム拡張のための追加改善機能<span class="en-inline"> — Additional improvements for system enhancement</span></p>
+            <div class="two-col reveal" style="margin-top: clamp(0.5rem, 1.5vh, 1rem); gap: clamp(1rem, 2vw, 1.5rem);">
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">📐</span>
+                        <h3>Mermaid Notation</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>フロー図やプロセスをMermaid記法で表現<span class="en-inline"> — Represent flow diagrams and processes using Mermaid notation</span></li>
+                        <li>構造化された視覚的表現<span class="en-inline"> — Structured visual representation</span></li>
+                    </ul>
+                </div>
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">🔍</span>
+                        <h3>Zoom-in Functionality</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>PDF・画像のズームイン機能<span class="en-inline"> — PDF and image zoom-in functionality</span></li>
+                        <li>ドキュメントの詳細確認<span class="en-inline"> — Detailed document viewing</span></li>
+                    </ul>
+                </div>
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">📝</span>
+                        <h3>Edit Tracking Indicator</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>ファイル編集状況の追跡表示<span class="en-inline"> — Track and display file editing status</span></li>
+                        <li>編集済みファイルの視覚的インジケータ<span class="en-inline"> — Visual indicator for edited files</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+<!-- ===========================================
+         SLIDE 22b — ADDITIONAL IMPROVEMENTS (Part 2)
+         =========================================== -->
+    <section class="slide content-slide" id="slide-22b-2">
+        <span class="slide-num"><span class="current">25</span> / 32</span>
+        <div class="slide-content">
+            <h2 class="reveal">Additional <span class="accent">Improvements</span> (2/2)</h2>
+            <p class="reveal">システム拡張のための追加改善機能<span class="en-inline"> — Additional improvements for system enhancement</span></p>
+            <div class="two-col reveal" style="margin-top: clamp(0.5rem, 1.5vh, 1rem); gap: clamp(1rem, 2vw, 1.5rem);">
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">📋</span>
+                        <h3>File Properties</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>ファイルプロパティの表示<span class="en-inline"> — Display file properties</span></li>
+                        <li>メタデータとステータスの確認<span class="en-inline"> — Check metadata and status</span></li>
+                    </ul>
+                </div>
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">💡</span>
+                        <h3>AI Suggestions</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>MarkdownファイルへのAI提案機能<span class="en-inline"> — AI suggestion functionality for Markdown files</span></li>
+                        <li>品質向上の自動支援<span class="en-inline"> — Automated support for quality improvement</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+<!-- ===========================================
+         SLIDE 23 — TASKI: SCREENS / FUNCTIONAL AREAS
+         =========================================== -->
+    <section class="slide content-slide" id="slide-22c">
+        <span class="slide-num"><span class="current">26</span> / 32</span>
+        <div class="slide-content">
+            <h2 class="reveal"><span class="accent">Major Functional Screens</span></h2>
+            <p class="reveal">4つの主要機能画面による包括的なドキュメント管理<span class="en-inline">Comprehensive document management through 4 major screens</span></p>
+            <div class="problem-grid reveal" style="margin-top: clamp(0.4rem, 1.5vh, 1rem);">
+                <div class="problem-card">
+                    <div class="icon">⚙️</div>
+                    <h3>Admin Panel</h3>
+                    <p>システム管理・用户管理・アクセス制御を設定する管理パネル<span class="en-inline">System administration, user management, and access control</span></p>
+                </div>
+                <div class="problem-card" style="border-color: var(--accent-magenta);">
+                    <div class="icon">📝</div>
+                    <h3>Markdown-PDF Editing Interface</h3>
+                    <p>Markdown・PDF統合編集をDedicatedビューでの編集<span class="en-inline">Large dedicated view for Markdown and PDF editing</span></p>
+                </div>
+                <div class="problem-card">
+                    <div class="icon">📊</div>
+                    <h3>File Properties Dashboard</h3>
+                    <p>ファイル編集状況・ステータスを一元管理<span class="en-inline">Centralized file status and properties management</span></p>
+                </div>
+                <div class="problem-card">
+                    <div class="icon">🤖</div>
+                    <h3>Automated Evaluation Interface</h3>
+                    <p>チャンク検査・自動評価・RAG精度測定のインタフェース<span class="en-inline">Interface for chunk inspection and RAG accuracy measurement</span></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+<!-- ===========================================
+         SLIDE 24 — TASKI: ADVANCED FEATURES
+         =========================================== -->
+    <section class="slide content-slide" id="slide-22d">
+        <span class="slide-num"><span class="current">27</span> / 32</span>
+        <div class="slide-content">
+            <h2 class="reveal"><span class="accent">Advanced Features</span></h2>
+            <div class="two-col reveal" style="margin-top: clamp(0.5rem, 1.5vh, 1rem); gap: clamp(1.5rem, 3vw, 2rem);">
+                <div>
+                    <h3>Filtering &amp; Highlighting</h3>
+                    <ul class="bullet-list">
+                        <li>フィルタリングと検索機能<span class="en-inline"> — Filtering and search functionality</span></li>
+                        <li>提案された編集箇所のハイライト表示<span class="en-inline"> — Highlight suggested edit locations</span></li>
+                        <li>編集済みセクションのハイライト表示<span class="en-inline"> — Highlight already edited sections</span></li>
+                    </ul>
+                    <h3 style="margin-top: 0.75rem;">Diff &amp; Knowledge</h3>
+                    <ul class="bullet-list">
+                        <li>編集差分をdiffとして保存<span class="en-inline"> — Store edit differences as diffs</span></li>
+                        <li>次回更新時の既存知識参照<span class="en-inline"> — Reference existing knowledge during updates</span></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Agentic OCR</h3>
+                    <ul class="bullet-list">
+                        <li>自動OCR強化機能<span class="en-inline"> — Automated OCR enhancement functionality</span></li>
+                        <li>Agentic OCRアプローチ<span class="en-inline"> — Agentic OCR approach</span></li>
+                    </ul>
+                    <h3 style="margin-top: 0.75rem;">AI Suggestions</h3>
+                    <ul class="bullet-list">
+                        <li>MarkdownファイルへのAIによる編集提案</li>
+                        <li>品質向上の自動支援<span class="en-inline"> — Automated support for quality improvement</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+<!-- ===========================================
+         SLIDE 25 — TASKI: SYSTEM PROCESSING IMPROVEMENTS
+         =========================================== -->
+    <section class="slide content-slide" id="slide-22e">
+        <span class="slide-num"><span class="current">28</span> / 32</span>
+        <div class="slide-content">
+            <h2 class="reveal">System <span class="accent">Processing Improvements</span></h2>
+            <p class="reveal">ストレージ・アクセスの統合強化とElasticsearch-connectors連携<span class="en-inline">Enhanced storage integration, access control, and connector alignment</span></p>
+            <div class="flow-row reveal" style="margin-top: clamp(0.5rem, 1.5vh, 1rem); flex-wrap: wrap; gap: clamp(0.5rem, 1.5vw, 1rem);">
+                <div class="flow-step">MinIO</div>
+                <span class="flow-arrow">↔</span>
+                <div class="flow-step highlight">Data Viewer UI</div>
+                <span class="flow-arrow">↔</span>
+                <div class="flow-step">Elasticsearch</div>
+            </div>
+            <div class="feature-grid reveal" style="margin-top: clamp(0.5rem, 1.5vh, 1rem);">
+                <div class="feature-item">
+                    <strong>MinIO/ES統合強化</strong> — 上書き優先順位・削除処理・同期ルールの明確化<span class="en-inline"> — Clarify overwrite priority, deletion handling, and sync rules</span>
+                </div>
+                <div class="feature-item">
+                    <strong>Entra ID統合</strong> — Microsoft Entra ID統合によるアクセス制御<span class="en-inline"> — Access control via Microsoft Entra ID integration</span>
+                </div>
+                <div class="feature-item">
+                    <strong>Elasticsearch-connectors連携</strong> — メタデータを预处理流程にも含める強化<span class="en-inline"> — Include metadata in preprocessing pipeline enhancement</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+<!-- ===========================================
+         SLIDE 26 — TASKI: OTHER ENHANCEMENTS (Excel/Word)
+         =========================================== -->
+    <section class="slide content-slide" id="slide-22f">
+        <span class="slide-num"><span class="current">29</span> / 32</span>
+        <div class="slide-content">
+            <h2 class="reveal">Other <span class="accent">Enhancements</span></h2>
+            <p class="reveal">Excel・Wordファイルのサポートにより対応フォーマットを拡大<span class="en-inline">Expanding supported formats with Excel and Word file support</span></p>
+            <div class="two-col reveal" style="margin-top: clamp(0.75rem, 2vh, 1.5rem); gap: clamp(1.5rem, 3vw, 2.5rem);">
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">📊</span>
+                        <h3>Excel (.xlsx) Support</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>テーブルデータをOCR・チャンキング対象に追加<span class="en-inline"> — Add table data to OCR and chunking targets</span></li>
+                        <li>セル構造を保持した形式での抽出<span class="en-inline"> — Extract while maintaining cell structure</span></li>
+                    </ul>
+                </div>
+                <div class="card neon-border">
+                    <div class="card-header">
+                        <span class="card-icon">📄</span>
+                        <h3>Word (.docx) Support</h3>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>Pandocを使用したWordからMarkdown/PDFへの変換<span class="en-inline"> — Convert Word to Markdown/PDF using Pandoc</span></li>
+                        <li>見出し・リスト・表などの構造保持<span class="en-inline"> — Maintain structure of headings, lists, tables, etc.</span></li>
+                    </ul>
+                </div>
+            </div>
+            <p class="reveal" style="margin-top: clamp(0.5rem, 1.5vh, 1rem); font-size: var(--small-size); color: var(--text-secondary);">対応フォーマットの拡大により、より多くのビジネス文書をRAGワークフローに統合可能に</p>
+        </div>
+    </section>
+
+
+<!-- ===========================================
          SLIDE 17 — FUTURE WORKS (Part 1)
          =========================================== -->
     <section class="slide content-slide" id="slide-20">
-        <span class="slide-num"><span class="current">22</span> / 24</span>
+        <span class="slide-num"><span class="current">30</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Future <span class="accent">Works</span></h2>
             <div class="problem-grid reveal" style="margin-top: clamp(0.3rem, 1vh, 0.75rem);">
@@ -1590,11 +1890,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 18 — FUTURE WORKS (Part 2)
          =========================================== -->
     <section class="slide content-slide" id="slide-21">
-        <span class="slide-num"><span class="current">23</span> / 24</span>
+        <span class="slide-num"><span class="current">31</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Future <span class="accent">Works</span></h2>
             <div class="problem-grid reveal" style="margin-top: clamp(0.3rem, 1vh, 0.75rem);">
@@ -1617,10 +1918,12 @@
         </div>
     </section>
 
-    <!-- ===========================================
+
+<!-- ===========================================
          SLIDE 19 — CLOSING / NEXT STEPS
          =========================================== -->
     <section class="slide closing-slide" id="slide-22">
+        <span class="slide-num"><span class="current">32</span> / 32</span>
         <canvas id="particles2" style="position:absolute;inset:0;z-index:0;pointer-events:none;"></canvas>
         <div class="slide-content">
             <hr class="glow-line reveal">
@@ -1631,201 +1934,3 @@
             <p class="reveal" style="font-size:var(--small-size);color:var(--text-secondary);opacity:0.7;margin-top:clamp(0.5rem,1.5vh,1rem);">Thank you — ご清聴ありがとうございました</p>
         </div>
     </section>
-
-    <!-- ===========================================
-       JAVASCRIPT — Presentation Controller + Particles
-       =========================================== -->
-    <script>
-        /* === SLIDE PRESENTATION CONTROLLER === */
-        class SlidePresentation {
-            constructor() {
-                this.slides = document.querySelectorAll('.slide');
-                this.currentSlide = 0;
-                this.totalSlides = this.slides.length;
-                this.isScrolling = false;
-
-                this.setupIntersectionObserver();
-                this.setupKeyboardNav();
-                this.setupTouchNav();
-                this.setupProgressBar();
-                this.setupNavDots();
-            }
-
-            /* Intersection Observer: add .visible class for animations */
-            setupIntersectionObserver() {
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            entry.target.classList.add('visible');
-                            const idx = Array.from(this.slides).indexOf(entry.target);
-                            if (idx !== -1) {
-                                this.currentSlide = idx;
-                                this.updateProgressBar();
-                                this.updateNavDots();
-                            }
-                        }
-                    });
-                }, { threshold: 0.5 });
-
-                this.slides.forEach(slide => observer.observe(slide));
-            }
-
-            /* Keyboard: Arrow keys, Space, Page Up/Down */
-            setupKeyboardNav() {
-                document.addEventListener('keydown', (e) => {
-                    if (['ArrowDown', 'ArrowRight', 'Space', 'PageDown'].includes(e.code)) {
-                        e.preventDefault();
-                        this.goToSlide(this.currentSlide + 1);
-                    } else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.code)) {
-                        e.preventDefault();
-                        this.goToSlide(this.currentSlide - 1);
-                    } else if (e.code === 'Home') {
-                        e.preventDefault();
-                        this.goToSlide(0);
-                    } else if (e.code === 'End') {
-                        e.preventDefault();
-                        this.goToSlide(this.totalSlides - 1);
-                    }
-                });
-            }
-
-            /* Touch: swipe up/down */
-            setupTouchNav() {
-                let startY = 0;
-                document.addEventListener('touchstart', (e) => {
-                    startY = e.touches[0].clientY;
-                }, { passive: true });
-
-                document.addEventListener('touchend', (e) => {
-                    const diff = startY - e.changedTouches[0].clientY;
-                    if (Math.abs(diff) > 50) {
-                        this.goToSlide(this.currentSlide + (diff > 0 ? 1 : -1));
-                    }
-                }, { passive: true });
-            }
-
-            /* Progress bar */
-            setupProgressBar() {
-                this.progressBar = document.getElementById('progressBar');
-                this.updateProgressBar();
-            }
-
-            updateProgressBar() {
-                if (this.progressBar) {
-                    const pct = ((this.currentSlide + 1) / this.totalSlides) * 100;
-                    this.progressBar.style.width = pct + '%';
-                }
-            }
-
-            /* Navigation dots */
-            setupNavDots() {
-                const container = document.getElementById('navDots');
-                if (!container) return;
-                for (let i = 0; i < this.totalSlides; i++) {
-                    const dot = document.createElement('div');
-                    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
-                    dot.addEventListener('click', () => this.goToSlide(i));
-                    container.appendChild(dot);
-                }
-                this.dots = container.querySelectorAll('.nav-dot');
-            }
-
-            updateNavDots() {
-                if (!this.dots) return;
-                this.dots.forEach((dot, i) => {
-                    dot.classList.toggle('active', i === this.currentSlide);
-                });
-            }
-
-            /* Navigate to a specific slide */
-            goToSlide(index) {
-                if (index < 0 || index >= this.totalSlides || this.isScrolling) return;
-                this.isScrolling = true;
-                this.slides[index].scrollIntoView({ behavior: 'smooth' });
-                setTimeout(() => { this.isScrolling = false; }, 800);
-            }
-        }
-
-        /* === PARTICLE SYSTEM === */
-        class ParticleField {
-            constructor(canvasId) {
-                this.canvas = document.getElementById(canvasId);
-                if (!this.canvas) return;
-                this.ctx = this.canvas.getContext('2d');
-                this.particles = [];
-                this.resize();
-                this.init();
-                this.animate();
-                window.addEventListener('resize', () => this.resize());
-            }
-
-            resize() {
-                if (!this.canvas) return;
-                this.canvas.width = this.canvas.offsetWidth;
-                this.canvas.height = this.canvas.offsetHeight;
-            }
-
-            init() {
-                const count = Math.min(60, Math.floor((this.canvas.width * this.canvas.height) / 23000));
-                this.particles = [];
-                for (let i = 0; i < count; i++) {
-                    this.particles.push({
-                        x: Math.random() * this.canvas.width,
-                        y: Math.random() * this.canvas.height,
-                        vx: (Math.random() - 0.5) * 0.4,
-                        vy: (Math.random() - 0.5) * 0.4,
-                        r: Math.random() * 1.5 + 0.5,
-                        alpha: Math.random() * 0.5 + 0.1
-                    });
-                }
-            }
-
-            animate() {
-                if (!this.ctx) return;
-                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-                this.particles.forEach(p => {
-                    p.x += p.vx;
-                    p.y += p.vy;
-                    if (p.x < 0) p.x = this.canvas.width;
-                    if (p.x > this.canvas.width) p.x = 0;
-                    if (p.y < 0) p.y = this.canvas.height;
-                    if (p.y > this.canvas.height) p.y = 0;
-
-                    this.ctx.beginPath();
-                    this.ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                    this.ctx.fillStyle = `rgba(230, 57, 70, ${p.alpha})`;
-                    this.ctx.fill();
-                });
-
-                /* Draw connections */
-                for (let i = 0; i < this.particles.length; i++) {
-                    for (let j = i + 1; j < this.particles.length; j++) {
-                        const dx = this.particles[i].x - this.particles[j].x;
-                        const dy = this.particles[i].y - this.particles[j].y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist < 120) {
-                            this.ctx.beginPath();
-                            this.ctx.moveTo(this.particles[i].x, this.particles[i].y);
-                            this.ctx.lineTo(this.particles[j].x, this.particles[j].y);
-                            this.ctx.strokeStyle = `rgba(230, 57, 70, ${0.08 * (1 - dist / 120)})`;
-                            this.ctx.lineWidth = 0.5;
-                            this.ctx.stroke();
-                        }
-                    }
-                }
-
-                requestAnimationFrame(() => this.animate());
-            }
-        }
-
-        /* === INIT === */
-        document.addEventListener('DOMContentLoaded', () => {
-            new SlidePresentation();
-            new ParticleField('particles');
-            new ParticleField('particles2');
-        });
-
-    </script>
-</body>
-</html>
