@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import { getMarkdown } from '../api/documents.ts';
 import { withToken } from '../api/client.ts';
@@ -257,6 +258,7 @@ export default function MarkdownView({ onImageClick }: MarkdownViewProps) {
                   {idx > 0 && <hr style={css.pageSectionDivider} />}
                   <Markdown
                     remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
                     components={{
                       img: ({ src, alt, ...props }) => (
                         <img

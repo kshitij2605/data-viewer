@@ -200,7 +200,13 @@ CHUNKING_RECOMMENDATION_PROMPT = """\
 
 日本語でMarkdown形式で回答してください。
 
-**出力の冒頭**: 必ず「以下は『{doc_title}』の分析結果と、最適なチャンキング戦略の提案です。」から始めてください。「ご提示いただいた」「ご依頼の」等の対話的な表現は使わず、独立したレポートとして書いてください。/no_think"""
+**出力の冒頭**: 必ず「以下は『{doc_title}』の分析結果と、最適なチャンキング戦略の提案です。」から始めてください。「ご提示いただいた」「ご依頼の」等の対話的な表現は使わず、独立したレポートとして書いてください。
+
+**出力の末尾**: レポートの最後に、推薦設定を機械可読な形式で必ず以下のHTMLコメントとして出力してください。値は実際の推薦値に置き換え、該当しないパラメータはnullにしてください。strategyは character / recursive / markdown / semantic / page のいずれかを使ってください。このコメントブロックの前後に余計な文章を追加しないでください。
+<!--AI_CONFIG
+{{"recommended":{{"strategy":"markdown","chunk_size":2000,"chunk_overlap":200,"similarity_threshold":null,"min_chunk_size":null}},"alternative":{{"strategy":"recursive","chunk_size":1500,"chunk_overlap":150,"similarity_threshold":null,"min_chunk_size":null}}}}
+-->
+/no_think"""
 
 
 # Max chars per analysis chunk — ~50k chars leaves room for prompt within 64k token context
