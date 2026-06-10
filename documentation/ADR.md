@@ -91,9 +91,9 @@ Evaluating all chunks sequentially is too slow (N chunks x ~5s each). The previo
 
 ### Consequences
 
-- High concurrency may overwhelm the LLM server if there are many chunks — consider adding a semaphore/concurrency limit if this becomes an issue.
+- ~~High concurrency may overwhelm the LLM server if there are many chunks — consider adding a semaphore/concurrency limit if this becomes an issue.~~ **Resolved by ADR-010**: a global per-process `asyncio.Semaphore` now caps in-flight requests.
 - SSE connections are long-lived; the frontend must handle connection drops gracefully.
-- A shared `httpx.AsyncClient` is used for connection pooling across parallel requests.
+- A shared `httpx.AsyncClient` with a bounded connection pool is used across parallel requests.
 
 ---
 
@@ -249,3 +249,123 @@ Users needed to view the original table image alongside its extracted structured
 
 - Raw HTML is rendered via `dangerouslySetInnerHTML` — acceptable since the content comes from our own OCR pipeline, not user input.
 - Table images without a corresponding HTML block in the `.mmd` file will show no extracted content.
+
+---
+
+## ADR-009: PostgreSQL as Production Database
+
+**Date:** 2026-06-08
+**Status:** Accepted
+
+### Context
+
+The original deployment used SQLite with WAL mode. When scaled to multiple gunicorn workers, SQLite's single-writer-at-a-time lock caused `OperationalError: database is locked` during concurrent chunking jobs (bulk INSERTs holding the write lock for seconds while other workers tried to read or write).
+
+### Decision
+
+Add `DATABASE_URL` to config. When set, `get_engine()` creates a PostgreSQL engine with connection pooling (`pool_size=5, max_overflow=10, pool_pre_ping=True`). SQLite remains the fallback when `DATABASE_URL` is empty, preserving the single-developer local workflow.
+
+Schema migrations use `inspector.get_columns()` instead of `PRAGMA table_info` so the same `ALTER TABLE` migration runs on both engines.
+
+### Rationale
+
+- PostgreSQL's MVCC allows true concurrent readers and writers — no write lock contention across workers.
+- `pool_pre_ping=True` recovers from dropped idle connections transparently.
+- The fallback to SQLite means no migration burden for developers running locally.
+
+### Consequences
+
+- Production requires a reachable PostgreSQL server.
+- Fresh cutover (empty DB) was chosen over data migration — users re-load documents from the source systems.
+- SQLite WAL is still used for local dev and retains `PRAGMA busy_timeout=5000` to handle the rare concurrent write under a single process.
+
+---
+
+## ADR-010: Global Per-Process LLM Concurrency Semaphore
+
+**Date:** 2026-06-08
+**Status:** Accepted
+
+### Context
+
+Without throttling, evaluating a 2000-chunk document fires up to 4000 concurrent HTTP requests to the shared Qwen3.5-122B vLLM deployment. At 100 users this saturates GPU VRAM, triggers OOM kills, and causes 429/503 cascades for all users.
+
+### Decision
+
+Add a module-level `asyncio.Semaphore(LLM_MAX_CONCURRENCY)` in `llm_eval.py`. Every LLM request — RAG/FAQ scoring, AI suggestion, and chunking review — must acquire the semaphore before sending the HTTP request. The httpx connection pool is bounded to the same limit. Transient failures are retried with exponential backoff + jitter up to `LLM_MAX_RETRIES`.
+
+The total server-wide cap = `WEB_CONCURRENCY × LLM_MAX_CONCURRENCY`. With defaults of `4 × 6 = 24`, the GPU sees at most 24 in-flight requests regardless of how many users trigger evaluations simultaneously.
+
+### Rationale
+
+- The semaphore is the only reliable way to bound GPU pressure — request queuing at the LLM server level is too late (OOM happens before the queue rejects).
+- Per-process (not shared across workers) semaphores are simpler and correct: each worker independently limits its own share.
+- Backoff with jitter prevents thundering-herd retry spikes when the GPU recovers from a 429 burst.
+
+### Consequences
+
+- Under sustained load from many users, individual evaluation requests queue behind the semaphore, increasing per-user latency. This is the correct trade-off — slow but reliable beats fast and crashing.
+- `LLM_MAX_CONCURRENCY` must be tuned based on the vLLM instance's capacity. Current default: 6 per worker.
+
+---
+
+## ADR-011: nginx Reverse Proxy with Asset Cache
+
+**Date:** 2026-06-08
+**Status:** Accepted
+
+### Context
+
+The app container was published directly on the host port. This exposed gunicorn workers to slow clients (a slow browser holds a worker socket open for its entire download duration), had no caching for immutable assets (every page view re-fetched thumbnails from MinIO), and had no rate limiting against burst traffic.
+
+### Decision
+
+Add an nginx:1.27-alpine container in docker-compose.yml. The app container is no longer published on the host; only nginx is. `deploy/nginx.conf` configures:
+- **Asset cache** (`proxy_cache_path`, 5 GB, 7 days) for document images, thumbnails, and markdown. Cache key strips `?token=` so all users share one cached copy.
+- **SSE pass-through** (`proxy_buffering off`, `proxy_read_timeout 3600s`) for evaluate-chunks and chunk-status endpoints.
+- **Rate limiting** (`limit_req 30r/s, burst 60`) and connection limiting per IP.
+- **gzip** for JSON and text responses.
+- **Keepalive 32** to the upstream to reuse connections.
+
+The backend emits `Cache-Control: public, max-age=604800` for cacheable asset URLs via an HTTP middleware in `main.py`.
+
+### Rationale
+
+- nginx buffers slow clients in kernel space and releases the upstream connection immediately after the response is sent, freeing gunicorn workers for the next request.
+- The nginx asset cache eliminates MinIO round-trips for repeat views — in a 20-user session on a 500-page document, this saves hundreds of MinIO requests per session.
+- SSE endpoints need special handling (`proxy_buffering off`) that nginx provides cleanly.
+
+### Consequences
+
+- Two containers instead of one; `docker compose down` stops both.
+- Cache must be invalidated when a document is deleted or re-loaded (currently not done — documents use unique IDs so old paths are never reused).
+- TLS termination placeholder is in nginx.conf but not yet activated (internal tool on trusted network).
+
+---
+
+## ADR-012: LDAP Server Object Caching
+
+**Date:** 2026-06-10
+**Status:** Accepted
+
+### Context
+
+Every login call rebuilt a new `ldap3.Server` object with `get_info=ALL`, which caused the library to fetch the full LDAP server schema (DSE, naming contexts, schema) on the first connection for each login attempt. This added ~500 ms per login, compounding with bcrypt hashing (~375 ms for new users) and two sequential TCP connections.
+
+### Decision
+
+1. **Cache the `Server` object** as a module-level singleton (`_ldap_server`) in `ldap_auth.py`. It is created once per gunicorn worker process and reused for all subsequent logins.
+2. **Switch `get_info=ALL` to `get_info=NONE`**. The schema is never needed for authentication, so fetching it is pure overhead.
+3. **Add `connect_timeout=5`** on `Server` and `receive_timeout=10` on each `Connection` so unreachable DCs fail fast instead of hanging the login request indefinitely.
+4. **Replace `bcrypt.hash()` with a sentinel** (`"!ldap-" + token`) when storing the placeholder password for new LDAP-authenticated users. bcrypt at cost 12 costs ~375 ms — unnecessary for a value that is never verified.
+
+### Rationale
+
+- `get_info=NONE` is the single largest win: it eliminates a schema fetch that was happening on effectively every login.
+- The cached `Server` singleton avoids DNS resolution overhead on repeat logins.
+- The sentinel pattern is safe because LDAP users never reach the local `verify_password()` path — the login handler returns after a successful LDAP bind.
+
+### Consequences
+
+- The `Server` singleton is per-process (not shared across gunicorn workers), so each of the 4 workers makes one DNS lookup and one schema-less connection on its first login. Subsequent logins on that worker skip both.
+- If the LDAP server's address changes, the container must be restarted to rebuild the singleton.

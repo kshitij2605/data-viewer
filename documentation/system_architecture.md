@@ -4,9 +4,9 @@
 
 Data Viewer is a full-stack application for reviewing PDF documents that have been processed through an OCR/extraction pipeline. It enables users to view extracted content (markdown, tables, images), chunk the text using multiple strategies, evaluate chunk quality via LLM-as-a-Judge, and provide human feedback.
 
-**Stack**: FastAPI (Python) + React (TypeScript) + SQLite + Qwen LLM + Elasticsearch + MinIO
+**Stack**: FastAPI (Python) + React (TypeScript) + PostgreSQL (SQLite fallback) + Qwen LLM + Elasticsearch + MinIO
 
-Deployed as a Docker container (multi-stage build) with Uvicorn as the ASGI server.
+Production deployment: Docker Compose with gunicorn (multiple uvicorn workers) behind an nginx reverse proxy.
 
 ---
 
@@ -17,13 +17,20 @@ Browser (React SPA)
   |
   |  HTTP / SSE
   v
-FastAPI Server (Uvicorn, inside Docker)
+nginx (reverse proxy — asset cache, gzip, rate limits, SSE passthrough)
   |
-  +--> SQLite (WAL mode, volume-mounted)
-  +--> Filesystem (document folders, thumbnails)
+  v
+gunicorn (WEB_CONCURRENCY workers, each a uvicorn process)
+  |
+FastAPI Server
+  |
+  +--> PostgreSQL DB (data_viewer) — primary production database
+  |    SQLite (WAL mode) — fallback for local dev (DATABASE_URL empty)
+  +--> Filesystem (local document folders, thumbnails)
   +--> Elasticsearch (rag_anything indices) — chunk import + write-back
   +--> MinIO (rag_anything assets) — images, tables, thumbnails, markdown
   +--> Qwen LLM API (llm-host:9000) — scoring, suggestions, AI review
+  |      throttled via per-process asyncio Semaphore (LLM_MAX_CONCURRENCY)
   +--> BGE-M3 Embedding API (embedding-host:8000) — semantic chunking + re-embedding on edit
 ```
 
@@ -38,20 +45,38 @@ FastAPI Server (Uvicorn, inside Docker)
 ### Configuration
 
 `backend/config.py` — Pydantic Settings class reading from environment variables:
-- `db_path` — SQLite database file location
-- `secret_key` — JWT signing key
-- `embedding_endpoint` — BGE-M3 embedding server URL
-- `thumbnail_dir` — directory for generated page thumbnails
+
+| Setting | Env var | Default | Description |
+|---------|---------|---------|-------------|
+| `database_url` | `DATABASE_URL` | `""` | Full SQLAlchemy URL (PostgreSQL recommended). Empty → SQLite at `db_path` |
+| `db_path` | `DB_PATH` | `data/data_viewer.db` | SQLite file path (fallback only) |
+| `secret_key` | `SECRET_KEY` | — | JWT signing key |
+| `port` | `PORT` | `8080` | Host-facing port nginx listens on |
+| `embedding_endpoint` | `EMBEDDING_ENDPOINT` | — | BGE-M3 server URL |
+| `thumbnail_dir` | `THUMBNAIL_DIR` | `data/thumbnails` | Generated page thumbnail directory |
+| `llm_max_concurrency` | `LLM_MAX_CONCURRENCY` | `24` | Per-process cap on in-flight Qwen requests |
+| `llm_max_retries` | `LLM_MAX_RETRIES` | `3` | Retries on 429/503/timeout |
+| `llm_timeout` | `LLM_TIMEOUT` | `60.0` | Per-attempt HTTP timeout (seconds) |
+| `ai_suggestion_image_max_px` | `AI_SUGGESTION_IMAGE_MAX_PX` | `1024` | Longest edge of downscaled vision image |
+| `ldap_url` | `LDAP_URL` | `""` | LDAP server URL. Empty disables AD login |
+| `ldap_bind_dn` | `LDAP_BIND_DN` | — | Service account DN for user search |
+| `ldap_bind_credentials` | `LDAP_BIND_CREDENTIALS` | — | Service account password |
+| `ldap_user_search_base` | `LDAP_USER_SEARCH_BASE` | — | LDAP search base DN |
+| `ldap_search_filter` | `LDAP_SEARCH_FILTER` | `(sAMAccountName={{username}})` | User search filter |
 
 ### Authentication
 
 `backend/auth.py` — JWT-based authentication (HS256, 24-hour expiry). Supports both `Authorization: Bearer` header and `?token=` query parameter (for EventSource/img tags that cannot set headers).
 
-`backend/seed.py` — Creates 3 default users on first startup (admin, reviewer1, reviewer2).
+`backend/services/ldap_auth.py` — Active Directory authentication via ldap3. Two-step bind: service account performs the user search, then user credentials are verified with a second bind. The `Server` object is a process-level singleton (`get_info=NONE`, `connect_timeout=5`) so no schema fetch occurs per login. Enabled when `LDAP_URL` is set; when enabled, local accounts are bypassed.
+
+`backend/api/auth.py` — Login endpoint tries LDAP first (if configured), then falls back to local bcrypt passwords. New LDAP users are auto-provisioned with a locked sentinel password (`!ldap-…`) on first login — bcrypt hashing is skipped because LDAP users never authenticate locally.
+
+`backend/seed.py` — Creates 3 default local users on first startup (admin, reviewer1, reviewer2). These are inactive when LDAP is enabled.
 
 ### Database
 
-`backend/db.py` — SQLAlchemy engine with SQLite WAL mode and foreign key enforcement. Schema migrations handled via `ALTER TABLE` statements in `init_db()` (no Alembic).
+`backend/db.py` — `get_engine()` builds the SQLAlchemy engine: prefers `DATABASE_URL` (PostgreSQL with connection pooling); falls back to a SQLite file with WAL mode + `busy_timeout=5000`. Schema migrations use `inspector.get_columns()` (dialect-portable) rather than SQLite PRAGMA, so the same migration code runs against both engines.
 
 `backend/models.py` — ORM models:
 
@@ -62,6 +87,7 @@ FastAPI Server (Uvicorn, inside Docker)
 | Chunk | chunks | Text chunks with chunking params and LLM scores |
 | ChunkEdit | chunk_edits | Per-user chunk content edits (original + modified) |
 | ChunkFeedback | chunk_feedback | Per-user emoji + comment feedback |
+| ChunkTask | chunk_tasks | Background chunking task progress (DB-backed for multi-worker safety) |
 | ChunkImage | chunk_images | Image references extracted from chunk content |
 
 Key relationships:
@@ -156,12 +182,16 @@ Five strategies for splitting markdown into chunks:
 Uses the deployed Qwen/Qwen3.5-122B-A10B model (64k max context) for three evaluation tasks:
 
 1. **RAG/FAQ Scoring** — Evaluates each chunk on a 0-10 scale for RAG usability (RAGの使いやすさ) and FAQ usability (FAQの使いやすさ) using a structured rubric prompt with 5 criteria each.
-2. **AI Suggestion** (AI提案) — Multimodal comparison of chunk text against the source page thumbnail image, reporting extraction errors.
+2. **AI Suggestion** (AI提案) — Multimodal comparison of chunk text against the source page thumbnail image (downscaled to `AI_SUGGESTION_IMAGE_MAX_PX` longest edge, ~76% smaller than raw PNG), reporting extraction errors.
 3. **Chunking Strategy Review** (AIレビュー) — Two-phase document analysis:
-   - **Phase 1 (Analysis)**: The full document markdown is sent to the LLM (split into ~50k char parts if the document exceeds that, with parallel analysis of each part). The LLM measures exact section sizes, table dimensions, and structural patterns.
-   - **Phase 2 (Recommendation)**: Analysis results are fed into a second prompt that generates document-specific strategy recommendations, citing actual section names and measured character counts.
+   - **Phase 1 (Analysis)**: The full document markdown is sent to the LLM (split into ~50k char parts if needed, with parallel analysis). The LLM measures exact section sizes, table dimensions, and structural patterns.
+   - **Phase 2 (Recommendation)**: Analysis results feed a second prompt that generates document-specific strategy recommendations citing actual section names and character counts.
 
-RAG/FAQ scoring and AI suggestion run in parallel per chunk via `asyncio.gather`. Evaluation auto-triggers after chunking completes. A shared `httpx.AsyncClient` with `trust_env=False` handles connection pooling without inheriting proxy settings.
+**Concurrency throttle:** All LLM calls funnel through a single per-process `asyncio.Semaphore` sized `LLM_MAX_CONCURRENCY`. With `WEB_CONCURRENCY=4` workers and `LLM_MAX_CONCURRENCY=6`, the server-wide maximum is 24 in-flight Qwen requests — protecting the shared GPU. The `httpx.AsyncClient` connection pool is bounded to the same limit. Transient failures (429/503/timeout) are retried with exponential backoff + jitter up to `LLM_MAX_RETRIES` times.
+
+**Score cache:** RAG/FAQ scores are cached in-process by SHA-256 content hash (`_score_cache`, max 5000 entries). Re-evaluating unchanged chunks never touches the GPU.
+
+RAG/FAQ scoring and AI suggestion run in parallel per chunk via `asyncio.gather`.
 
 #### Other Services
 
@@ -273,36 +303,56 @@ Type-safe API modules: `auth.ts`, `documents.ts`, `chunks.ts`, `feedback.ts` —
 
 ## Deployment
 
-### Docker (production)
+### Production (Docker Compose)
 
 ```
-Docker container (data-viewer)
-  └── Uvicorn (single worker)
-        └── FastAPI app
-              └── Serves pre-built frontend/dist/ as static files
+Host port ${PORT}
+  └── nginx:1.27-alpine (data-viewer-nginx container)
+        │  asset cache (5 GB, 7 d)  •  gzip  •  rate limits
+        │  proxy_buffering off for SSE endpoints
+        └── upstream: data-viewer:8080
+              └── gunicorn (WEB_CONCURRENCY workers)
+                    └── uvicorn.workers.UvicornWorker × N
+                          └── FastAPI app
+                                └── Serves pre-built frontend/dist/ as static files
 ```
 
-- **Image**: Multi-stage build — Node 22 Alpine builds the React frontend; Python 3.10 slim serves it
-- **Data volume**: `./data` mounted at `/app/data` for SQLite DB and page thumbnails
-- **Config**: `.env` file via `env_file` in `docker-compose.yml`
-- **Port**: `${PORT:-8080}` (host) → 8080 (container)
+- **Image**: Multi-stage build — Node 22 Alpine builds the React frontend; Python 3.10 slim runs gunicorn
+- **Database**: PostgreSQL via `DATABASE_URL`; SQLite fallback when `DATABASE_URL` is empty
+- **Data volume**: `./data` mounted at `/app/data` for thumbnails (and SQLite if used)
+- **Config**: `.env` file + compose `environment:` overrides
+- **Ports**: nginx publishes `${PORT:-8080}` on the host; the app container exposes 8080 only on the internal compose network
+- **Resource limits**: `cpus: "8"`, `memory: 8g` on the app container
+
+Key tuning variables:
+
+| Variable | Role |
+|----------|------|
+| `WEB_CONCURRENCY` | Number of gunicorn worker processes |
+| `LLM_MAX_CONCURRENCY` | Per-worker Qwen request cap; total = workers × this |
+| `APP_PORT` | Internal bind port for gunicorn (default `8080`, ≠ `PORT`) |
 
 ```bash
-docker compose up -d --build   # start
-docker compose down            # stop
-docker logs data-viewer -f     # logs
+docker compose up -d --build                              # first run
+docker compose build data-viewer && \
+  docker compose up -d --force-recreate data-viewer       # redeploy after code change
+docker logs data-viewer -f                                # app logs
+docker logs data-viewer-nginx -f                          # proxy logs
+docker compose down                                       # stop
 ```
+
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for full step-by-step instructions.
 
 ### Local development
 
 ```bash
-# Backend with hot reload
+# Backend with hot reload (SQLite, single worker)
 python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8085 --reload
 
 # Frontend dev server (HMR, proxies /api to :8085)
 cd frontend && npm run dev
 ```
 
-- **Database**: SQLite file with WAL journal mode
+- **Database**: SQLite file with WAL journal mode (leave `DATABASE_URL` empty)
 - **Frontend**: Pre-built SPA served as static files from `frontend/dist/`
 - **CORS**: All origins allowed (intranet deployment)
