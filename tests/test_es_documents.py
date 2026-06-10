@@ -13,9 +13,13 @@ def mock_es_client():
     """Mock Elasticsearch client with test data."""
     es_mock = MagicMock()
 
-    # Mock indices response
+    # Mock indices response. Only indices whose names start with an allowed
+    # prefix (rag-anything-glmhybridocr- or aiast) are surfaced; everything
+    # else is filtered out.
     es_mock.cat.indices.return_value = [
-        {"index": "test_index", "docs.count": "150"},
+        {"index": "rag-anything-glmhybridocr-bgem3-ruri-markdown-chunking-v5", "docs.count": "150"},
+        {"index": "aiast-ra-spo-index", "docs.count": "42"},
+        {"index": "test_index", "docs.count": "10"},
         {"index": ".hidden", "docs.count": "0"},
     ]
 
@@ -84,7 +88,11 @@ def test_list_indices_returns_sorted_list(client, auth_headers, mock_es_client):
         assert resp.status_code == 200
         data = resp.json()
         names = [d["index_name"] for d in data]
-        assert "test_index" in names
+        # Both allowed prefixes are surfaced
+        assert "rag-anything-glmhybridocr-bgem3-ruri-markdown-chunking-v5" in names
+        assert "aiast-ra-spo-index" in names
+        # Non-matching indices are filtered out
+        assert "test_index" not in names
         assert ".hidden" not in names
         assert names == sorted(names)
 

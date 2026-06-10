@@ -18,6 +18,12 @@ from backend.services.minio_client import fetch_minio_bytes, minio_object_exists
 
 logger = logging.getLogger(__name__)
 
+# Index name prefixes surfaced in the import selection menu.
+_ALLOWED_INDEX_PREFIXES = (
+    "rag-anything-glmhybridocr-",
+    "aiast",
+)
+
 # Known strategy keywords in index names (order matters — check longer first)
 _INDEX_STRATEGY_KEYWORDS = [
     ("page-markdown", "page_markdown"),
@@ -86,7 +92,7 @@ def list_indices(current_user: User = Depends(get_current_user)):
     results = []
     for idx in stats:
         name = idx.get("index", "")
-        if not name.startswith("rag-anything-glmhybridocr-"):
+        if not name.startswith(_ALLOWED_INDEX_PREFIXES):
             continue
         results.append(ESIndex(
             index_name=name,
