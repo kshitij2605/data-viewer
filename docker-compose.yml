@@ -4,14 +4,43 @@ services:
     image: data-viewer-rag-anything:latest
     container_name: data-viewer
     restart: unless-stopped
-    ports:
-      - "${PORT:-8080}:8080"
+    # No host port published directly — nginx fronts the app. Expose only on the
+    # internal network. (Set a port here if you want to reach it without nginx.)
+    expose:
+      - "8080"
     env_file:
       - .env
     environment:
-      # Override DB_PATH and thumbnail dir to point inside the mounted volume
-      DB_PATH: /app/data/data_viewer.db
       THUMBNAIL_DIR: /app/data/thumbnails
+      # PostgreSQL connection (dedicated database; does not touch other DBs on
+      # the server). Falls back to SQLite at DB_PATH if DATABASE_URL is empty.
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:__REDACTED_EMBEDDING_API_KEY__@postgres-host:5433/data_viewer}
+      # Number of gunicorn workers.
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-4}
+      # Per-worker global cap on in-flight Qwen requests. Keep
+      # workers × LLM_MAX_CONCURRENCY within what the GPU can sustain.
+      LLM_MAX_CONCURRENCY: ${LLM_MAX_CONCURRENCY:-6}
     volumes:
-      # Persist SQLite database and page thumbnails across restarts
+      # Page thumbnails (SQLite no longer used in prod, but keep volume for cache)
       - ./data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: "8"
+          memory: 8g
+        reservations:
+          cpus: "2"
+          memory: 2g
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: data-viewer-nginx
+    restart: unless-stopped
+    depends_on:
+      - data-viewer
+    ports:
+      - "${PORT:-8080}:80"
+      # - "443:443"   # enable after mounting TLS certs below
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # - ./deploy/certs:/etc/nginx/certs:ro   # TLS certs (see nginx.conf)

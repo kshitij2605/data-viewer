@@ -1,4 +1,10 @@
-<!-- Fonts: Clash Display + Satoshi from Fontshare -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Viewer Platform — macAI 2026</title>
+    <!-- Fonts: Clash Display + Satoshi from Fontshare -->
     <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@200,300,400,500,600,700&f[]=satoshi@300,400,500,700&display=swap">
 
     <style>
@@ -1152,7 +1158,7 @@
         <span class="slide-num"><span class="current">10</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Data Viewer <span class="accent">Platform</span></h2>
-            <p class="reveal">先週の議論と地主さんのフィードバックを基に、今週Data Viewer Platformを開発しました。RAG・FAQシステム向けに構築された、ドキュメント解析出力の読込・表示・チャンキング・評価・アノテーションを行うフルスタックプラットフォームです。<span class="en-inline">Based on last week's discussions and Jinushi-san's feedback, this week we developed Data Viewer Platform. A full-stack platform for loading, viewing, chunking, evaluating, and annotating document parsing outputs — built for teams working with RAG and FAQ systems.</span></p>
+            <p class="reveal">Data Viewer Platformは、OCR処理済みPDFドキュメントの解析品質を可視化・評価するフルスタックプラットフォームです。ドキュメントの読込・マークダウンおよびページ画像の表示・複数チャンキング戦略の適用と比較・LLMによるリアルタイム品質スコアリング・人手アノテーションまでを一元的に管理できます。RAGパイプライン・FAQ生成・LLMファインチューニング用データ整備・ドキュメントQA・構造化コンテンツ抽出など、ドキュメント解析品質の評価を必要とあらゆるチームに対応します。<span class="en-inline">Data Viewer Platform is a full-stack platform for inspecting and evaluating the quality of OCR-processed document outputs. It enables teams to load documents, visualize structured markdown and page images, apply and compare multiple chunking strategies, stream real-time LLM quality scores, and annotate chunks with human feedback — all in one unified interface. Designed for any team working on RAG pipelines, FAQ generation, LLM fine-tuning data preparation, document QA, or structured content extraction workflows.</span></p>
         </div>
     </section>
 
@@ -1167,23 +1173,23 @@
             <div class="feature-grid" style="margin-top: clamp(0.3rem, 1vh, 0.75rem);">
                 <div class="feature-card reveal-scale">
                     <span class="badge">Views</span>
-                    <h3>4 View Modes</h3>
-                    <p>各コンテンツタイプに最適化された4つの表示モード<span class="en-inline">Chunks, Markdown, Tables, Images — each optimized for its content type</span></p>
+                    <h3>5 View Modes</h3>
+                    <p>各コンテンツタイプに最適化された5つの表示モード<span class="en-inline">Chunks, Markdown, Tables, Images, AI Review — each optimized for its content type</span></p>
                 </div>
                 <div class="feature-card reveal-scale">
                     <span class="badge">Chunking</span>
-                    <h3>5 Strategies</h3>
-                    <p>パラメータを完全制御できる5つのチャンキング戦略<span class="en-inline">Character, Recursive, Markdown, Semantic, Page-wise — with full parameter control</span></p>
+                    <h3>6 Strategies</h3>
+                    <p>パラメータを完全制御できる6つのチャンキング戦略。セマンティックチャンキングはリアルタイム進捗バー（残り時間付き）表示<span class="en-inline">Character, Recursive, Markdown, Semantic, Page-wise, Page+Markdown — semantic chunking shows a real-time progress bar with ETA</span></p>
                 </div>
                 <div class="feature-card reveal-scale">
                     <span class="badge">AI</span>
                     <h3>LLM Evaluation</h3>
-                    <p>RAGスコア、FAQスコア、マルチモーダルAI提案をリアルタイム配信<span class="en-inline">RAG score, FAQ score, and multimodal AI suggestions — streamed in real-time</span></p>
+                    <p>RAGスコア、FAQスコア、AI提案をリアルタイム配信。評価完了後に平均・中央値をツールバーに表示<span class="en-inline">RAG score, FAQ score, AI suggestions — streamed via SSE. Avg &amp; median stats shown in toolbar after completion</span></p>
                 </div>
                 <div class="feature-card reveal-scale">
                     <span class="badge">Feedback</span>
                     <h3>Human Annotation</h3>
-                    <p>チャンクごとの絵文字評価、インラインコメント、差分追跡付きコンテンツ編集<span class="en-inline">Per-chunk emoji ratings, inline comments, and content editing with diff tracking</span></p>
+                    <p>チャンクごとの絵文字評価、インラインコメント、差分追跡付きコンテンツ編集、編集後の個別再評価<span class="en-inline">Per-chunk emoji ratings, inline comments, diff-tracked editing, and per-chunk re-evaluation after edits</span></p>
                 </div>
                 <div class="feature-card reveal-scale">
                     <span class="badge">Review</span>
@@ -1232,6 +1238,7 @@
                 <span class="pill">Zustand State</span>
                 <span class="pill">SQLAlchemy ORM</span>
                 <span class="pill">JWT Auth</span>
+                <span class="pill active">LDAP / Active Directory</span>
                 <span class="pill">Server-Sent Events</span>
                 <span class="pill">Elasticsearch</span>
                 <span class="pill">MinIO</span>
@@ -1290,7 +1297,7 @@
     <section class="slide content-slide" id="slide-12">
         <span class="slide-num"><span class="current">14</span> / 32</span>
         <div class="slide-content">
-            <h2 class="reveal">5 Chunking <span class="accent">Strategies</span></h2>
+            <h2 class="reveal">6 Chunking <span class="accent">Strategies</span></h2>
             <p class="reveal">ドキュメントタイプごとに最適なアプローチを選択 — パラメータを完全制御<span class="en-inline">Choose the right approach for each document type — with full parameter control</span></p>
             <table class="strategy-table reveal" style="margin-top: clamp(0.3rem, 1vh, 0.75rem);">
                 <thead>
@@ -1318,13 +1325,18 @@
                     </tr>
                     <tr>
                         <td>Semantic</td>
-                        <td>BGE-M3埋め込み類似度<span class="en-inline">BGE-M3 embedding similarity</span></td>
-                        <td>トピック単位のチャンキング<span class="en-inline">Topic-aligned chunking</span></td>
+                        <td>BGE-M3バッチ埋め込み＋類似度クラスタリング<span class="en-inline">BGE-M3 batch embeddings + similarity clustering</span></td>
+                        <td>トピック単位のチャンキング（進捗バー+残り時間表示）<span class="en-inline">Topic-aligned chunking — real-time progress bar with ETA</span></td>
                     </tr>
                     <tr>
                         <td>Page-wise</td>
                         <td>元のページ区切り<span class="en-inline">Original page boundaries</span></td>
                         <td>ドキュメント構造の保持<span class="en-inline">Preserving document structure</span></td>
+                    </tr>
+                    <tr>
+                        <td>Page+Markdown</td>
+                        <td>ページ境界＋見出し階層の組み合わせ<span class="en-inline">Page boundaries + Markdown header hierarchy</span></td>
+                        <td>章立て構造を持つ大規模文書<span class="en-inline">Large structured docs with clear sections</span></td>
                     </tr>
                 </tbody>
             </table>
@@ -1339,7 +1351,7 @@
         <span class="slide-num"><span class="current">15</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">LLM-Powered <span class="accent">Evaluation</span></h2>
-            <p class="reveal">各チャンクをQwen 3.5が5つの基準でスコアリング（0〜10）— SSEでUIにリアルタイム配信。<span class="en-inline">Every chunk is scored by Qwen 3.5 on 5 criteria (0–10) — streamed to the UI in real-time via SSE.</span></p>
+            <p class="reveal">各チャンクをQwen 3.5が2スコア（RAG・FAQ）各5評価基準でスコアリング（0〜10）— SSEでリアルタイム配信。評価完了後は平均・中央値スコアをツールバーに表示。<span class="en-inline">Every chunk scored by Qwen 3.5 on 2 dimensions (RAG + FAQ), each with 5 criteria (0–10) — streamed in real-time via SSE. Avg &amp; median scores appear in the toolbar after evaluation completes.</span></p>
             <div class="two-col" style="margin-top: clamp(0.3rem, 1vh, 0.75rem);">
                 <div class="reveal">
                     <div class="score-badges" style="margin-bottom:clamp(0.2rem,0.5vh,0.4rem);">
@@ -1382,8 +1394,8 @@
     <section class="slide content-slide" id="slide-14">
         <span class="slide-num"><span class="current">16</span> / 32</span>
         <div class="slide-content">
-            <h2 class="reveal">4 Specialized <span class="accent">View Modes</span></h2>
-            <div class="feature-grid" style="margin-top: clamp(0.3rem, 1vh, 0.75rem); grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));">
+            <h2 class="reveal">5 Specialized <span class="accent">View Modes</span></h2>
+            <div class="feature-grid" style="margin-top: clamp(0.3rem, 1vh, 0.75rem); grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));">
                 <div class="feature-card reveal-scale">
                     <span class="badge" style="background:rgba(212,168,71,0.1);color:var(--accent-magenta)">Primary</span>
                     <h3>Chunks</h3>
@@ -1403,6 +1415,11 @@
                     <span class="badge">Visual</span>
                     <h3>Images Only</h3>
                     <p>カテゴリ分類ギャラリー — チャート、図表、スキャン画像（キャプション付き）<span class="en-inline">Categorized gallery — charts, figures, scans, with captions</span></p>
+                </div>
+                <div class="feature-card reveal-scale">
+                    <span class="badge" style="background:rgba(230,57,70,0.1);color:var(--accent)">AI</span>
+                    <h3>AI Review</h3>
+                    <p>ドキュメント構造を自動分析し、最適なチャンキング戦略とパラメータ設定を推薦<span class="en-inline">Auto-analyzes document structure and recommends the optimal chunking strategy with parameters</span></p>
                 </div>
             </div>
         </div>
@@ -1435,7 +1452,8 @@
                         <li style="font-size:var(--small-size);color:var(--text-secondary);padding-left:clamp(0.8rem,1.5vw,1.2rem);position:relative;"><span style="position:absolute;left:0;color:var(--accent);">▹</span>チャンク内容をインラインで編集<span class="en-inline"> Edit chunk content inline</span></li>
                         <li style="font-size:var(--small-size);color:var(--text-secondary);padding-left:clamp(0.8rem,1.5vw,1.2rem);position:relative;"><span style="position:absolute;left:0;color:var(--accent);">▹</span>差分の視覚的追跡（原文 vs. 修正後）<span class="en-inline"> Visual diff tracking (original vs. modified)</span></li>
                         <li style="font-size:var(--small-size);color:var(--text-secondary);padding-left:clamp(0.8rem,1.5vw,1.2rem);position:relative;"><span style="position:absolute;left:0;color:var(--accent);">▹</span>ワンクリックで原文に復元<span class="en-inline"> One-click revert to original</span></li>
-                        <li style="font-size:var(--small-size);color:var(--text-secondary);padding-left:clamp(0.8rem,1.5vw,1.2rem);position:relative;"><span style="position:absolute;left:0;color:var(--accent);">▹</span>ユーザーごとの編集履歴を保存<span class="en-inline"> Per-user edit history preserved</span></li>
+                        <li style="font-size:var(--small-size);color:var(--text-secondary);padding-left:clamp(0.8rem,1.5vw,1.2rem);position:relative;"><span style="position:absolute;left:0;color:var(--accent);">▹</span>編集後のワンクリック個別再評価<span class="en-inline"> One-click per-chunk re-evaluation after editing</span></li>
+                        <li style="font-size:var(--small-size);color:var(--text-secondary);padding-left:clamp(0.8rem,1.5vw,1.2rem);position:relative;"><span style="position:absolute;left:0;color:var(--accent);">▹</span>チャンク削除時にES側も同期削除<span class="en-inline"> Per-chunk deletion synced to Elasticsearch</span></li>
                     </ul>
                 </div>
             </div>
@@ -1593,7 +1611,7 @@
 <!-- ===========================================
          SLIDE 20 — SECTION: TASKI SYSTEM ENHANCEMENTS
          =========================================== -->
-    <section class="slide section-slide" id="slide-20">
+    <section class="slide section-slide" id="slide-taski-sec">
         <span class="slide-num"><span class="current">22</span> / 32</span>
         <div class="slide-content">
             <div class="section-label reveal">Next Chapter</div>
@@ -1606,7 +1624,7 @@
 <!-- ===========================================
          SLIDE 21 — TASKI: PROPOSED ENHANCEMENTS
          =========================================== -->
-    <section class="slide content-slide" id="slide-21">
+    <section class="slide content-slide" id="slide-taski-enh">
         <span class="slide-num"><span class="current">23</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">TASKI Features: <span class="accent">Proposed Enhancements</span></h2>
@@ -1866,7 +1884,7 @@
 <!-- ===========================================
          SLIDE 17 — FUTURE WORKS (Part 1)
          =========================================== -->
-    <section class="slide content-slide" id="slide-20">
+    <section class="slide content-slide" id="slide-fw1">
         <span class="slide-num"><span class="current">30</span> / 32</span>
         <div class="slide-content">
             <h2 class="reveal">Future <span class="accent">Works</span></h2>
@@ -1900,9 +1918,9 @@
             <h2 class="reveal">Future <span class="accent">Works</span></h2>
             <div class="problem-grid reveal" style="margin-top: clamp(0.3rem, 1vh, 0.75rem);">
                 <div class="problem-card" style="border-color: rgba(230, 57, 70, 0.2);">
-                    <div class="icon">🔐</div>
-                    <h3>LDAP認証<span class="en-inline">LDAP Authentication</span></h3>
-                    <p>既存の組織ID管理と連携した安全なロールベースアクセス制御のためのエンタープライズLDAPログインを統合。<span class="en-inline">Integrate enterprise LDAP login for secure, role-based access control aligned with existing organizational identity management.</span></p>
+                    <div class="icon">📈</div>
+                    <h3>評価スコア履歴トレンド<span class="en-inline">Evaluation Score History</span></h3>
+                    <p>チャンキング戦略を変更するたびにRAG・FAQスコアの推移を可視化し、最適戦略の選定を定量的にサポート。<span class="en-inline">Visualize RAG and FAQ score trends across chunking strategy iterations — enabling data-driven selection of the optimal strategy over time.</span></p>
                 </div>
                 <div class="problem-card" style="border-color: var(--accent-magenta); background: linear-gradient(135deg, rgba(212,168,71,0.05), transparent);">
                     <div class="icon">⚖️</div>
@@ -1934,3 +1952,101 @@
             <p class="reveal" style="font-size:var(--small-size);color:var(--text-secondary);opacity:0.7;margin-top:clamp(0.5rem,1.5vh,1rem);">Thank you — ご清聴ありがとうございました</p>
         </div>
     </section>
+
+<script>
+(function () {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const progressBar = document.getElementById('progressBar');
+    const navDotsContainer = document.getElementById('navDots');
+    let currentIndex = 0;
+
+    // Build nav dots
+    slides.forEach(function (slide, i) {
+        const dot = document.createElement('button');
+        dot.className = 'nav-dot';
+        dot.setAttribute('aria-label', 'Slide ' + (i + 1));
+        dot.addEventListener('click', function () { scrollToSlide(i); });
+        navDotsContainer.appendChild(dot);
+    });
+    const dots = Array.from(navDotsContainer.querySelectorAll('.nav-dot'));
+
+    function updateUI(index) {
+        currentIndex = index;
+        progressBar.style.width = ((index + 1) / slides.length * 100) + '%';
+        dots.forEach(function (d, i) { d.classList.toggle('active', i === index); });
+    }
+
+    function scrollToSlide(index) {
+        if (index >= 0 && index < slides.length) {
+            slides[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // IntersectionObserver — add .visible and update UI when slide enters viewport
+    const observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                const idx = slides.indexOf(entry.target);
+                if (idx !== -1) updateUI(idx);
+            }
+        });
+    }, { threshold: 0.3 });
+
+    slides.forEach(function (slide) { observer.observe(slide); });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function (e) {
+        if (['ArrowDown', 'ArrowRight', 'PageDown', ' '].indexOf(e.key) !== -1) {
+            e.preventDefault();
+            scrollToSlide(currentIndex + 1);
+        } else if (['ArrowUp', 'ArrowLeft', 'PageUp'].indexOf(e.key) !== -1) {
+            e.preventDefault();
+            scrollToSlide(currentIndex - 1);
+        }
+    });
+
+    // Particles
+    function initParticles(canvasId) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+        resize();
+        window.addEventListener('resize', resize);
+
+        var particles = [];
+        for (var i = 0; i < 55; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                r: Math.random() * 1.8 + 0.4,
+                dx: (Math.random() - 0.5) * 0.35,
+                dy: (Math.random() - 0.5) * 0.35,
+                o: Math.random() * 0.35 + 0.08
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(function (p) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(230,57,70,' + p.o + ')';
+                ctx.fill();
+                p.x += p.dx; p.y += p.dy;
+                if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+                if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+            });
+            requestAnimationFrame(draw);
+        }
+        draw();
+    }
+
+    initParticles('particles');
+    initParticles('particles2');
+})();
+</script>
+
+</body>
+</html>

@@ -1,12 +1,17 @@
 """LLM-based chunk quality evaluation for RAG, FAQ usability, and AI suggestion."""
 import asyncio
 import base64
+import hashlib
+import io
 import json
 import logging
+import random
 import re
 from pathlib import Path
 
 import httpx
+
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -14,15 +19,51 @@ LLM_API_BASE = "http://llm-host:9000/v1"
 LLM_API_KEY = "__REDACTED_EMBEDDING_API_KEY__"
 LLM_MODEL = "Qwen/Qwen3.5-122B-A10B"
 
-# Shared httpx client for connection pooling across parallel requests
+# ---------------------------------------------------------------------------
+# Global throttle: a single process-wide semaphore caps how many requests are
+# in flight against the shared Qwen vLLM deployment at any moment — regardless
+# of how many users or chunks are being evaluated concurrently. This is the key
+# protection that keeps a 100-user burst from overwhelming one GPU. The httpx
+# client's connection pool is bounded to match.
+# ---------------------------------------------------------------------------
 _client: httpx.AsyncClient | None = None
+_semaphore: asyncio.Semaphore | None = None
+# Lazily-bound to the running event loop so the singletons are created inside
+# the loop that uses them (important under gunicorn/uvicorn workers).
+_semaphore_loop: object | None = None
+
+# In-process cache of parsed RAG/FAQ scores keyed by a hash of the chunk text,
+# so re-evaluating unchanged content never hits the GPU again.
+_score_cache: dict[str, dict] = {}
+_SCORE_CACHE_MAX = 5000
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    global _semaphore, _semaphore_loop
+    loop = asyncio.get_running_loop()
+    if _semaphore is None or _semaphore_loop is not loop:
+        _semaphore = asyncio.Semaphore(max(1, settings.llm_max_concurrency))
+        _semaphore_loop = loop
+    return _semaphore
 
 
 async def _get_client() -> httpx.AsyncClient:
     global _client
     if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(timeout=120.0, trust_env=False)
+        # Cap total connections to the global concurrency budget so the pool
+        # itself can't exceed what the throttle allows.
+        limits = httpx.Limits(
+            max_connections=max(1, settings.llm_max_concurrency),
+            max_keepalive_connections=max(1, settings.llm_max_concurrency),
+        )
+        _client = httpx.AsyncClient(
+            timeout=settings.llm_timeout, trust_env=False, limits=limits
+        )
     return _client
+
+
+def _content_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 RAG_FAQ_PROMPT = """\
@@ -218,28 +259,104 @@ async def evaluate_chunking_strategy(markdown_content: str, num_pages: int, num_
     return await _call_llm([{"role": "user", "content": rec_prompt}], max_tokens=3000)
 
 
+_RETRYABLE_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
+
+
 async def _call_llm(messages: list[dict], max_tokens: int = 512) -> str:
-    """Make a single LLM API call and return the response text."""
+    """Make a single LLM API call and return the response text.
+
+    Acquires the global concurrency semaphore (so total in-flight requests to
+    the shared Qwen deployment stay bounded) and retries transient failures
+    (429/503/timeouts) with exponential backoff + jitter.
+    """
     client = await _get_client()
-    resp = await client.post(
-        f"{LLM_API_BASE}/chat/completions",
-        headers={"Authorization": f"Bearer {LLM_API_KEY}"},
-        json={
-            "model": LLM_MODEL,
-            "messages": messages,
-            "temperature": 0.1,
-            "max_tokens": max_tokens,
-        },
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    semaphore = _get_semaphore()
+    payload = {
+        "model": LLM_MODEL,
+        "messages": messages,
+        "temperature": 0.1,
+        "max_tokens": max_tokens,
+    }
+
+    last_exc: Exception | None = None
+    attempts = max(1, settings.llm_max_retries)
+    for attempt in range(attempts):
+        try:
+            async with semaphore:
+                resp = await client.post(
+                    f"{LLM_API_BASE}/chat/completions",
+                    headers={"Authorization": f"Bearer {LLM_API_KEY}"},
+                    json=payload,
+                )
+            if resp.status_code in _RETRYABLE_STATUS:
+                raise httpx.HTTPStatusError(
+                    f"retryable status {resp.status_code}",
+                    request=resp.request,
+                    response=resp,
+                )
+            resp.raise_for_status()
+            return resp.json()["choices"][0]["message"]["content"]
+        except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as e:
+            # Don't retry genuine client errors (4xx that aren't rate-limit/conflict).
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status is not None and status not in _RETRYABLE_STATUS:
+                raise
+            last_exc = e
+            if attempt < attempts - 1:
+                backoff = min(2 ** attempt, 8) + random.uniform(0, 0.5)
+                logger.warning(
+                    "LLM call failed (attempt %d/%d): %s — retrying in %.1fs",
+                    attempt + 1, attempts, e, backoff,
+                )
+                await asyncio.sleep(backoff)
+
+    raise last_exc if last_exc else RuntimeError("LLM call failed")
 
 
 async def evaluate_rag_faq(content: str) -> dict:
-    """Evaluate RAG and FAQ scores. Returns {"rag_score": int, "faq_score": int}."""
+    """Evaluate RAG and FAQ scores. Returns {"rag_score": int, "faq_score": int}.
+
+    Results are cached by content hash so unchanged chunks never re-hit the GPU.
+    Only successfully-parsed (non-None) scores are cached.
+    """
+    key = _content_hash(content)
+    cached = _score_cache.get(key)
+    if cached is not None:
+        return dict(cached)
+
     prompt = RAG_FAQ_PROMPT.format(chunk_text=content)
     text = await _call_llm([{"role": "user", "content": prompt}])
-    return _parse_scores(text)
+    scores = _parse_scores(text)
+
+    if scores.get("rag_score") is not None and scores.get("faq_score") is not None:
+        if len(_score_cache) >= _SCORE_CACHE_MAX:
+            _score_cache.clear()  # simple bound; cheap to rebuild
+        _score_cache[key] = dict(scores)
+    return scores
+
+
+def _downscale_image_to_jpeg(path: str, max_px: int) -> bytes | None:
+    """Load a page image, shrink its longest edge to <= max_px, return JPEG bytes.
+
+    Cuts vision-prompt token cost dramatically (a ~420 KB page PNG → tens of KB).
+    Returns None if the image can't be processed (caller falls back to raw bytes).
+    """
+    try:
+        import fitz  # PyMuPDF, already a dependency
+        doc = fitz.open(path)
+        page = doc[0]
+        rect = page.rect
+        longest = max(rect.width, rect.height) or 1
+        scale = min(1.0, max_px / longest)
+        pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale))
+        if pix.alpha:  # JPEG has no alpha channel
+            pix = fitz.Pixmap(fitz.csRGB, pix)
+        data = pix.tobytes(output="jpeg", jpg_quality=70)
+        doc.close()
+        return data
+    except Exception as e:
+        logger.warning("Image downscale failed for %s: %s", path, e)
+        return None
 
 
 async def evaluate_ai_suggestion(content: str, page_image_path: str | None) -> str:
@@ -251,8 +368,11 @@ async def evaluate_ai_suggestion(content: str, page_image_path: str | None) -> s
         }], max_tokens=512)
         return text.strip()
 
-    # Encode image as base64
-    image_data = Path(page_image_path).read_bytes()
+    # Downscale + recompress the page image before encoding to keep the vision
+    # prompt cheap; fall back to the raw bytes if processing fails.
+    image_data = _downscale_image_to_jpeg(page_image_path, settings.ai_suggestion_image_max_px)
+    if image_data is None:
+        image_data = Path(page_image_path).read_bytes()
     b64 = base64.b64encode(image_data).decode("utf-8")
 
     prompt_text = AI_SUGGESTION_PROMPT.format(chunk_text=content)

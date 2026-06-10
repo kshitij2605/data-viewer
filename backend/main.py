@@ -1,6 +1,7 @@
 """FastAPI application entry point."""
+import re
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.db import init_db
@@ -23,6 +24,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Immutable document assets (per-document MinIO/local files) — let browsers and
+# the nginx cache hold them. Content never changes for a given path.
+_CACHEABLE_ASSET = re.compile(
+    r"^/api/documents/\d+/(layout-thumbnail/|layout-pdf|images/|tables/|markdown|page/\d+/(thumbnail|markdown))"
+)
+
+
+@app.middleware("http")
+async def add_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.method == "GET" and _CACHEABLE_ASSET.match(request.url.path):
+        response.headers.setdefault("Cache-Control", "public, max-age=604800")
+    return response
 
 from backend.api.auth import router as auth_router  # noqa: E402
 from backend.api.documents import router as documents_router  # noqa: E402

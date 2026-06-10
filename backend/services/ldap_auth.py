@@ -10,22 +10,33 @@ import logging
 import ssl
 from typing import Optional
 
-from ldap3 import Server, Connection, ALL, Tls, SUBTREE
+from ldap3 import Server, Connection, NONE, Tls, SUBTREE
 from ldap3.core.exceptions import LDAPException
 
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Module-level singleton — built once per process, reused across all logins.
+# Avoids repeated DNS resolution and eliminates the get_info=ALL schema fetch
+# that was adding ~500 ms to every login.
+_ldap_server: Optional[Server] = None
 
-def _build_server() -> Optional[Server]:
+
+def _get_server() -> Optional[Server]:
+    global _ldap_server
+    if _ldap_server is not None:
+        return _ldap_server
     if not settings.ldap_url:
         return None
     tls = None
     if settings.ldap_starttls or settings.ldap_url.startswith("ldaps://"):
         validate = ssl.CERT_NONE if not settings.ldap_tls_reject_unauthorized else ssl.CERT_REQUIRED
         tls = Tls(validate=validate)
-    return Server(settings.ldap_url, get_info=ALL, tls=tls)
+    # get_info=NONE: skip the LDAP schema/DSE fetch — we don't need it for auth.
+    # connect_timeout=5: fail fast if the DC is unreachable instead of hanging.
+    _ldap_server = Server(settings.ldap_url, get_info=NONE, tls=tls, connect_timeout=5)
+    return _ldap_server
 
 
 def authenticate(username: str, password: str) -> Optional[dict]:
@@ -39,7 +50,7 @@ def authenticate(username: str, password: str) -> Optional[dict]:
     if not username or not password:
         return None
 
-    server = _build_server()
+    server = _get_server()
     if server is None:
         return None
 
@@ -51,6 +62,7 @@ def authenticate(username: str, password: str) -> Optional[dict]:
             user=settings.ldap_bind_dn or None,
             password=settings.ldap_bind_credentials or None,
             auto_bind=True,
+            receive_timeout=10,
         )
         if settings.ldap_starttls:
             service_conn.start_tls()
@@ -81,7 +93,7 @@ def authenticate(username: str, password: str) -> Optional[dict]:
             pass
 
     try:
-        user_conn = Connection(server, user=user_dn, password=password, auto_bind=True)
+        user_conn = Connection(server, user=user_dn, password=password, auto_bind=True, receive_timeout=10)
         if settings.ldap_starttls:
             user_conn.start_tls()
         user_conn.unbind()

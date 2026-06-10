@@ -2,7 +2,6 @@
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from passlib.hash import bcrypt
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -43,9 +42,13 @@ def _get_or_create_ldap_user(db: Session, ldap_info: dict) -> User:
     username = ldap_info["username"]
     user = db.query(User).filter(User.username == username).first()
     if user is None:
+        # Sentinel — LDAP users never authenticate via local password, so there
+        # is no need to bcrypt a throwaway value (which costs ~375ms at cost 12).
+        # The "!" prefix mirrors Unix locked-account convention and cannot match
+        # any bcrypt hash format, so verify_password() will always reject it.
         user = User(
             username=username,
-            password_hash=bcrypt.hash(secrets.token_urlsafe(32)),
+            password_hash="!ldap-" + secrets.token_urlsafe(16),
             display_name=ldap_info.get("display_name") or username,
         )
         db.add(user)

@@ -2,7 +2,6 @@
 import json
 import logging
 import re
-import threading
 
 logger = logging.getLogger(__name__)
 from pathlib import Path
@@ -14,16 +13,66 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.auth import get_current_user
-from backend.db import get_db
-from backend.models import Chunk, ChunkEdit, ChunkFeedback, ChunkImage, Document, User
+from backend.db import get_db, SessionLocal
+from backend.models import Chunk, ChunkEdit, ChunkFeedback, ChunkImage, ChunkTask, Document, User
 from backend.services.chunking import chunk_document
 from backend.services.markdown_parser import extract_image_refs_from_chunk
 
 router = APIRouter(tags=["chunks"])
 
-# In-memory task tracking for async (semantic) chunking
-_chunk_tasks: dict = {}
-_chunk_tasks_lock = threading.Lock()
+
+# ---------------------------------------------------------------------------
+# Async (semantic) chunking task tracking — stored in the DB (not process
+# memory) so progress can be polled from any gunicorn worker.
+# ---------------------------------------------------------------------------
+
+def _task_create(task_id: str, document_id: int, total_pages: int):
+    db = SessionLocal()
+    try:
+        db.add(ChunkTask(
+            task_id=task_id, document_id=document_id,
+            status="processing", progress=0, total=0,
+            pages_done=0, total_pages=total_pages or 0,
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+
+def _task_update(task_id: str, **fields):
+    db = SessionLocal()
+    try:
+        t = db.query(ChunkTask).filter(ChunkTask.task_id == task_id).first()
+        if t:
+            for k, v in fields.items():
+                setattr(t, k, v)
+            db.commit()
+    finally:
+        db.close()
+
+
+def _task_get(task_id: str) -> dict:
+    db = SessionLocal()
+    try:
+        t = db.query(ChunkTask).filter(ChunkTask.task_id == task_id).first()
+        if not t:
+            return {}
+        return {
+            "status": t.status, "progress": t.progress, "total": t.total,
+            "pages_done": t.pages_done, "total_pages": t.total_pages,
+            "error": t.error,
+        }
+    finally:
+        db.close()
+
+
+def _task_delete(task_id: str):
+    db = SessionLocal()
+    try:
+        db.query(ChunkTask).filter(ChunkTask.task_id == task_id).delete()
+        db.commit()
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -207,19 +256,12 @@ def chunk_document_endpoint(
     if strategy == "semantic":
         import uuid
         task_id = str(uuid.uuid4())
-        with _chunk_tasks_lock:
-            _chunk_tasks[task_id] = {
-                "status": "processing", "progress": 0, "total": 0,
-                "pages_done": 0, "total_pages": document.num_pages or 0,
-            }
+        _task_create(task_id, document.id, document.num_pages or 0)
 
         def _page_progress(pages_done: int, total_pages: int):
-            with _chunk_tasks_lock:
-                _chunk_tasks[task_id]["pages_done"] = pages_done
-                _chunk_tasks[task_id]["total_pages"] = total_pages
+            _task_update(task_id, pages_done=pages_done, total_pages=total_pages)
 
         def _run_semantic():
-            from backend.db import SessionLocal
             bg_db = SessionLocal()
             try:
                 chunk_dicts = chunk_document(
@@ -231,8 +273,7 @@ def chunk_document_endpoint(
                     min_chunk_size=body.min_chunk_size or 100,
                     progress_fn=_page_progress,
                 )
-                with _chunk_tasks_lock:
-                    _chunk_tasks[task_id]["total"] = len(chunk_dicts)
+                _task_update(task_id, total=len(chunk_dicts))
 
                 # Re-fetch document in new session
                 doc = bg_db.query(Document).filter(Document.id == document_id).first()
@@ -267,17 +308,16 @@ def chunk_document_endpoint(
                                 page_index=page_idx,
                             ))
 
-                    with _chunk_tasks_lock:
-                        _chunk_tasks[task_id]["progress"] = i + 1
+                    # Throttle progress writes (every 5 chunks + the last) so
+                    # large docs don't issue a DB round-trip per chunk.
+                    if (i + 1) % 5 == 0 or (i + 1) == len(chunk_dicts):
+                        _task_update(task_id, progress=i + 1)
 
                 bg_db.commit()
-                with _chunk_tasks_lock:
-                    _chunk_tasks[task_id]["status"] = "complete"
+                _task_update(task_id, status="complete")
             except Exception as e:
                 bg_db.rollback()
-                with _chunk_tasks_lock:
-                    _chunk_tasks[task_id]["status"] = "error"
-                    _chunk_tasks[task_id]["error"] = str(e)
+                _task_update(task_id, status="error", error=str(e))
             finally:
                 bg_db.close()
 
@@ -623,8 +663,7 @@ async def chunk_status_sse(
             return
 
         while True:
-            with _chunk_tasks_lock:
-                task = _chunk_tasks.get(task_id, {})
+            task = await asyncio.to_thread(_task_get, task_id)
 
             status = task.get("status", "unknown")
             data = {
@@ -641,9 +680,8 @@ async def chunk_status_sse(
             yield {"data": json.dumps(data)}
 
             if status in ("complete", "error"):
-                # Clean up task
-                with _chunk_tasks_lock:
-                    _chunk_tasks.pop(task_id, None)
+                # Clean up the finished task row
+                await asyncio.to_thread(_task_delete, task_id)
                 break
 
             await asyncio.sleep(0.5)

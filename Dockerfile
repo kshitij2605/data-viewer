@@ -32,4 +32,5 @@ RUN mkdir -p data/thumbnails
 
 EXPOSE 8080
 
-CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Production: gunicorn managing multiple Uvicorn workers (count via WEB_CONCURRENCY).
+CMD ["gunicorn", "backend.main:app", "-c", "backend/gunicorn_conf.py"]

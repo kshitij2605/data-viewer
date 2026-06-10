@@ -106,6 +106,26 @@ class ChunkFeedback(Base):
     user = relationship("User", back_populates="feedback")
 
 
+class ChunkTask(Base):
+    """Background (semantic) chunking task progress.
+
+    Stored in the DB rather than process memory so progress can be polled from
+    any gunicorn worker (the SSE poll may land on a different worker than the
+    one running the job)."""
+    __tablename__ = "chunk_tasks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(Text, unique=True, nullable=False, index=True)
+    document_id = Column(Integer, nullable=False)
+    status = Column(Text, default="processing")  # processing, complete, error
+    progress = Column(Integer, default=0)
+    total = Column(Integer, default=0)
+    pages_done = Column(Integer, default=0)
+    total_pages = Column(Integer, default=0)
+    error = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+
 class ChunkImage(Base):
     __tablename__ = "chunk_images"
 

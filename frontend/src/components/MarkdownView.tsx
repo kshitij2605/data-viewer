@@ -119,6 +119,10 @@ export default function MarkdownView({ onImageClick }: MarkdownViewProps) {
   const [rightWidth, setRightWidth] = useState(360);
   const [isDragging, setIsDragging] = useState(false);
   const [activePage, setActivePage] = useState(1);
+  // Lazy-load window: only fetch thumbnails near the active page. Pages, once
+  // loaded, stay loaded. Avoids pulling all thumbnails (e.g. ~92 MB for a
+  // 24-page doc) on mount.
+  const [loadedPages, setLoadedPages] = useState<Set<number>>(() => new Set([1]));
 
   const leftPaneRef = useRef<HTMLDivElement>(null);
   const rightPaneRef = useRef<HTMLDivElement>(null);
@@ -161,6 +165,7 @@ export default function MarkdownView({ onImageClick }: MarkdownViewProps) {
     if (!doc) return;
     setError('');
     setActivePage(1);
+    setLoadedPages(new Set([1]));
     const cached = markdownCache.get(doc.id);
     if (cached !== undefined) {
       setContent(cached);
@@ -204,6 +209,19 @@ export default function MarkdownView({ onImageClick }: MarkdownViewProps) {
       setTimeout(() => { programmaticScroll.current = false; }, 500);
     }
   }, [activePage]);
+
+  // Expand the lazy-load window to cover pages near the active page.
+  useEffect(() => {
+    if (numPages === 0) return;
+    setLoadedPages((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (let p = activePage - 2; p <= activePage + 2; p++) {
+        if (p >= 1 && p <= numPages && !next.has(p)) { next.add(p); changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [activePage, numPages]);
 
   if (!doc) {
     return <div style={css.loading}>ドキュメントを選択してください。</div>;
@@ -280,6 +298,7 @@ export default function MarkdownView({ onImageClick }: MarkdownViewProps) {
           {pages.map((p) => {
             const src = withToken(`/api/documents/${doc.id}/layout-thumbnail/${p}`);
             const isActive = p === activePage;
+            const shouldLoad = loadedPages.has(p);
             return (
               <div
                 key={p}
@@ -290,23 +309,43 @@ export default function MarkdownView({ onImageClick }: MarkdownViewProps) {
                   transform: isActive ? 'scale(1)' : 'scale(0.95)',
                 }}
               >
-                <img
-                  src={src}
-                  alt={`Page ${p}`}
-                  style={{
-                    ...css.pageThumb,
-                    borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border)',
-                    boxShadow: isActive ? '0 0 0 2px var(--color-primary-ghost), 0 4px 16px rgba(230,57,70,0.12)' : 'none',
-                    transition: 'border-color 300ms ease, box-shadow 300ms ease',
-                  }}
-                  onClick={() => onImageClick?.(src, `Page ${p}`, undefined, p, numPages)}
-                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = isActive
-                      ? '0 0 0 2px var(--color-primary-ghost), 0 4px 16px rgba(230,57,70,0.12)'
-                      : 'none';
-                  }}
-                />
+                {shouldLoad ? (
+                  <img
+                    src={src}
+                    alt={`Page ${p}`}
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      ...css.pageThumb,
+                      borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border)',
+                      boxShadow: isActive ? '0 0 0 2px var(--color-primary-ghost), 0 4px 16px rgba(230,57,70,0.12)' : 'none',
+                      transition: 'border-color 300ms ease, box-shadow 300ms ease',
+                    }}
+                    onClick={() => onImageClick?.(src, `Page ${p}`, undefined, p, numPages)}
+                    onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = isActive
+                        ? '0 0 0 2px var(--color-primary-ghost), 0 4px 16px rgba(230,57,70,0.12)'
+                        : 'none';
+                    }}
+                  />
+                ) : (
+                  // Placeholder keeps layout/scroll height stable until loaded
+                  <div
+                    onClick={() => setLoadedPages((prev) => new Set(prev).add(p))}
+                    style={{
+                      ...css.pageThumb,
+                      aspectRatio: '1 / 1.414',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--color-text-faint)',
+                      fontSize: '11px',
+                    }}
+                  >
+                    Page {p}
+                  </div>
+                )}
                 <div style={css.pageLabel}>Page {p}</div>
               </div>
             );
