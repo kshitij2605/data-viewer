@@ -315,3 +315,38 @@ def test_refresh_non_es_document_404(client, auth_headers, db_session):
 
     resp = client.post(f"/api/es/documents/{doc.id}/refresh", headers=auth_headers)
     assert resp.status_code == 404
+
+# ---------------------------------------------------------------------------
+# Tests: resolve_keyword_field (handles indices that map parent_doc_id as
+# either text+.keyword, e.g. rag-anything-*, or plain keyword, e.g. aiast-*)
+# ---------------------------------------------------------------------------
+
+def _es_with_field_mapping(index, field, mapping):
+    es = MagicMock()
+    es.indices.get_field_mapping.return_value = {
+        index: {"mappings": {field: {"full_name": field, "mapping": {field: mapping}}}}
+    }
+    return es
+
+
+def test_resolve_keyword_field_text_with_keyword_subfield():
+    from backend.services.es_client import resolve_keyword_field
+    es = _es_with_field_mapping(
+        "rag-anything-idx", "parent_doc_id",
+        {"type": "text", "fields": {"keyword": {"type": "keyword", "ignore_above": 256}}},
+    )
+    assert resolve_keyword_field(es, "rag-anything-idx", "parent_doc_id") == "parent_doc_id.keyword"
+
+
+def test_resolve_keyword_field_plain_keyword():
+    from backend.services.es_client import resolve_keyword_field
+    es = _es_with_field_mapping("aiast-idx", "parent_doc_id", {"type": "keyword"})
+    assert resolve_keyword_field(es, "aiast-idx", "parent_doc_id") == "parent_doc_id"
+
+
+def test_resolve_keyword_field_falls_back_on_error():
+    from backend.services.es_client import resolve_keyword_field
+    es = MagicMock()
+    es.indices.get_field_mapping.side_effect = Exception("mapping unavailable")
+    # On any error, fall back to the legacy ".keyword" form.
+    assert resolve_keyword_field(es, "broken-idx", "parent_doc_id") == "parent_doc_id.keyword"

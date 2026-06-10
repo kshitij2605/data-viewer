@@ -8,6 +8,42 @@ logger = logging.getLogger(__name__)
 
 _es_client: Elasticsearch | None = None
 
+# Cache the resolved aggregatable/term-queryable form of a field per
+# (index, field). Mappings don't change at runtime, so this is safe.
+_keyword_field_cache: dict[tuple[str, str], str] = {}
+
+
+def resolve_keyword_field(es: Elasticsearch, index: str, field: str) -> str:
+    """Return the exact-match (aggregatable / term-queryable) form of ``field``.
+
+    Indices differ in how they map id-like fields: rag_anything indices map
+    ``parent_doc_id`` as ``text`` with a ``.keyword`` sub-field (so you must
+    aggregate / term-query on ``parent_doc_id.keyword``), while others (e.g.
+    the ``aiast-*`` indices) map it directly as ``keyword`` (so ``.keyword``
+    does not exist and you must use ``parent_doc_id`` itself). Using the wrong
+    form silently returns zero results. Resolve the right one from the mapping.
+    """
+    cache_key = (index, field)
+    if cache_key in _keyword_field_cache:
+        return _keyword_field_cache[cache_key]
+
+    resolved = f"{field}.keyword"  # safe default — preserves legacy behaviour
+    try:
+        fm = es.indices.get_field_mapping(index=index, fields=field)
+        for idx_info in fm.values():
+            leaf = idx_info.get("mappings", {}).get(field, {}).get("mapping", {}).get(field, {})
+            ftype = leaf.get("type")
+            if ftype == "keyword":
+                resolved = field
+            elif ftype == "text" and "keyword" in leaf.get("fields", {}):
+                resolved = f"{field}.keyword"
+            break
+    except Exception as e:
+        logger.warning("Could not resolve keyword field for %s/%s: %s", index, field, e)
+
+    _keyword_field_cache[cache_key] = resolved
+    return resolved
+
 
 def get_es_client() -> Elasticsearch:
     """Get or create a cached Elasticsearch client. Validates URL on first call."""
@@ -28,13 +64,14 @@ def get_es_client() -> Elasticsearch:
 def find_es_doc_id(es_index: str, parent_doc_id: str, chunk_index: int) -> str | None:
     """Find the ES _id for a chunk by parent_doc_id and chunk_id fields."""
     es = get_es_client()
+    pd_field = resolve_keyword_field(es, es_index, "parent_doc_id")
     resp = es.search(
         index=es_index,
         body={
             "query": {
                 "bool": {
                     "filter": [
-                        {"term": {"parent_doc_id.keyword": parent_doc_id}},
+                        {"term": {pd_field: parent_doc_id}},
                         {"term": {"chunk_id": chunk_index}},
                     ]
                 }

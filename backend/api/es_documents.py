@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from backend.auth import get_current_user
 from backend.db import get_db, SessionLocal
 from backend.models import Document, Chunk, ChunkImage, User
-from backend.services.es_client import get_es_client
+from backend.services.es_client import get_es_client, resolve_keyword_field
 from backend.services.minio_client import fetch_minio_bytes, minio_object_exists
 
 logger = logging.getLogger(__name__)
@@ -114,13 +114,15 @@ def list_es_documents(
 ):
     es = get_es_client()
 
-    # Aggregate on parent_doc_id to get unique documents
+    # Aggregate on parent_doc_id to get unique documents. The exact field form
+    # (parent_doc_id vs parent_doc_id.keyword) depends on the index mapping.
+    pd_field = resolve_keyword_field(es, index, "parent_doc_id")
     body = {
         "size": 0,
         "aggs": {
             "docs": {
                 "terms": {
-                    "field": "parent_doc_id.keyword",
+                    "field": pd_field,
                     "size": 10000,
                 },
                 "aggs": {
@@ -388,8 +390,9 @@ def refresh_from_es(
 def _fetch_all_chunks(es, index: str, parent_doc_id: str) -> list:
     """Fetch all chunks for a document from ES using search_after."""
     all_hits = []
+    pd_field = resolve_keyword_field(es, index, "parent_doc_id")
     body = {
-        "query": {"term": {"parent_doc_id.keyword": parent_doc_id}},
+        "query": {"term": {pd_field: parent_doc_id}},
         "sort": [{"chunk_id": "asc"}],
         "size": 500,
     }
