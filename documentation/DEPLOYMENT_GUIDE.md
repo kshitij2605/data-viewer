@@ -87,7 +87,7 @@ MINIO_SECURE=false
 
 # ── LDAP / Active Directory (leave LDAP_URL empty to disable) ─────────────────
 LDAP_URL=ldap://ldap-host:389
-LDAP_BIND_DN=bind-user@example.com
+LDAP_BIND_DN=__REDACTED_LDAP_BIND_DN__
 LDAP_BIND_CREDENTIALS=<password>
 LDAP_USER_SEARCH_BASE=DC=example,DC=com
 LDAP_SEARCH_FILTER=(sAMAccountName={{username}})

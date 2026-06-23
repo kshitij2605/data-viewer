@@ -4,6 +4,13 @@ import * as docApi from '../api/documents.ts';
 import type { ESIndex, ESDocument } from '../api/documents.ts';
 import { useDocumentStore } from '../stores/documentStore.ts';
 
+type ImportSource = 'elasticsearch' | 'veda';
+
+const SOURCES: { id: ImportSource; label: string }[] = [
+  { id: 'elasticsearch', label: 'Elasticsearch' },
+  { id: 'veda', label: 'Veda' },
+];
+
 const css = {
   overlay: {
     position: 'fixed' as const,
@@ -32,8 +39,31 @@ const css = {
     fontWeight: 700,
     fontFamily: 'var(--font-display)',
     color: 'var(--color-text)',
-    marginBottom: '16px',
+    marginBottom: '14px',
     letterSpacing: '0.5px',
+  },
+  tabRow: {
+    display: 'flex',
+    gap: '4px',
+    marginBottom: '16px',
+    borderBottom: '1px solid var(--color-border-light)',
+  },
+  tab: {
+    padding: '7px 16px',
+    fontSize: '13px',
+    fontFamily: 'var(--font-display)',
+    fontWeight: 600,
+    color: 'var(--color-text-muted)',
+    background: 'none',
+    border: 'none',
+    borderBottom: '2px solid transparent',
+    cursor: 'pointer',
+    transition: 'all 120ms ease',
+    marginBottom: '-1px',
+  },
+  tabActive: {
+    color: 'var(--color-primary)',
+    borderBottomColor: 'var(--color-primary)',
   },
   indexRow: {
     display: 'flex',
@@ -48,7 +78,6 @@ const css = {
     fontWeight: 600,
     whiteSpace: 'nowrap' as const,
   },
-  // Custom dropdown styles
   dropdownWrapper: {
     position: 'relative' as const,
     flex: 1,
@@ -247,15 +276,16 @@ const css = {
   },
 } as const;
 
-interface ESImportDialogProps {
+interface ImportDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
-export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
+export default function ImportDialog({ open, onClose }: ImportDialogProps) {
+  const [source, setSource] = useState<ImportSource>('elasticsearch');
   const [indices, setIndices] = useState<ESIndex[]>([]);
   const [selectedIndex, setSelectedIndex] = useState('');
-  const [esDocs, setEsDocs] = useState<ESDocument[]>([]);
+  const [docs, setDocs] = useState<ESDocument[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
   const [loadingIndices, setLoadingIndices] = useState(false);
@@ -266,22 +296,28 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { loadDocuments, setDocument } = useDocumentStore();
 
-  // Load indices when dialog opens
+  const isVeda = source === 'veda';
+  const sourceLabel = isVeda ? 'Veda' : 'Elasticsearch';
+  const selectorLabel = isVeda ? 'コレクション:' : 'インデックス:';
+
+  // Load collections/indices when the dialog opens or the source changes.
   useEffect(() => {
     if (!open) return;
     setLoadingIndices(true);
     setError('');
     setDropdownOpen(false);
-    docApi.listESIndices()
+    setSelectedIndex('');
+    setDocs([]);
+    setSelected(new Set());
+    const fetchCollections = isVeda ? docApi.listVedaCollections : docApi.listESIndices;
+    fetchCollections()
       .then((data) => {
         setIndices(data);
-        if (data.length > 0 && !selectedIndex) {
-          setSelectedIndex(data[0].index_name);
-        }
+        setSelectedIndex(data.length > 0 ? data[0].index_name : '');
       })
-      .catch(() => setError('Elasticsearchインデックスの取得に失敗しました'))
+      .catch(() => setError(`${sourceLabel}の一覧の取得に失敗しました`))
       .finally(() => setLoadingIndices(false));
-  }, [open]);
+  }, [open, source]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -295,20 +331,21 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [dropdownOpen]);
 
-  // Load documents when index changes
+  // Load documents when the selected collection/index changes.
   useEffect(() => {
     if (!selectedIndex) {
-      setEsDocs([]);
+      setDocs([]);
       return;
     }
     setLoadingDocs(true);
     setError('');
     setSelected(new Set());
-    docApi.listESDocuments(selectedIndex)
-      .then(setEsDocs)
+    const fetchDocs = isVeda ? docApi.listVedaDocuments : docApi.listESDocuments;
+    fetchDocs(selectedIndex)
+      .then(setDocs)
       .catch(() => setError('ドキュメント一覧の取得に失敗しました'))
       .finally(() => setLoadingDocs(false));
-  }, [selectedIndex]);
+  }, [selectedIndex, source]);
 
   const toggleSelect = useCallback((docId: string) => {
     setSelected((prev) => {
@@ -318,7 +355,7 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
     });
   }, []);
 
-  const importableDocs = esDocs.filter((d) => !d.already_imported);
+  const importableDocs = docs.filter((d) => !d.already_imported);
 
   const toggleSelectAll = useCallback(() => {
     setSelected((prev) => {
@@ -335,12 +372,13 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
     setImporting(true);
     setImportProgress({ done: 0, total: selected.size });
 
+    const importDoc = isVeda ? docApi.importVedaDocument : docApi.importESDocument;
     try {
       let lastResult: docApi.ImportResult | null = null;
       let done = 0;
       for (const docId of selected) {
         try {
-          lastResult = await docApi.importESDocument(docId, selectedIndex);
+          lastResult = await importDoc(docId, selectedIndex);
         } catch {
           // skip individual failures
         }
@@ -350,8 +388,8 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
       await loadDocuments();
       if (lastResult) {
         // Re-fetch to get the full Document shape
-        const docs = await docApi.listDocuments();
-        const imported = docs.find((d) => d.id === lastResult!.id);
+        const allDocs = await docApi.listDocuments();
+        const imported = allDocs.find((d) => d.id === lastResult!.id);
         if (imported) setDocument(imported);
       }
       setSelected(new Set());
@@ -361,7 +399,7 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
     } finally {
       setImporting(false);
     }
-  }, [selected, selectedIndex, loadDocuments, setDocument, onClose]);
+  }, [selected, selectedIndex, source, loadDocuments, setDocument, onClose]);
 
   const allImportableSelected = importableDocs.length > 0 && importableDocs.every((d) => selected.has(d.parent_doc_id));
   const someSelected = importableDocs.some((d) => selected.has(d.parent_doc_id));
@@ -385,11 +423,26 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
             transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={css.title}>Elasticsearchからインポート</div>
+            <div style={css.title}>データソースからインポート</div>
 
-            {/* Index selector */}
+            {/* Source tabs */}
+            <div style={css.tabRow}>
+              {SOURCES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  style={{ ...css.tab, ...(source === s.id ? css.tabActive : {}) }}
+                  onClick={() => !importing && setSource(s.id)}
+                  disabled={importing}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Collection / index selector */}
             <div style={css.indexRow}>
-              <span style={css.label}>インデックス:</span>
+              <span style={css.label}>{selectorLabel}</span>
               <div style={css.dropdownWrapper} ref={dropdownRef}>
                 <button
                   type="button"
@@ -457,12 +510,12 @@ export default function ESImportDialog({ open, onClose }: ESImportDialogProps) {
             <div style={css.listContainer}>
               {loadingDocs ? (
                 <div style={css.emptyList}>ドキュメント一覧を取得中...</div>
-              ) : esDocs.length === 0 ? (
+              ) : docs.length === 0 ? (
                 <div style={css.emptyList}>
-                  {selectedIndex ? 'ドキュメントが見つかりません' : 'インデックスを選択してください'}
+                  {selectedIndex ? 'ドキュメントが見つかりません' : `${sourceLabel}の${isVeda ? 'コレクション' : 'インデックス'}を選択してください`}
                 </div>
               ) : (
-                esDocs.map((doc) => {
+                docs.map((doc) => {
                   const isImported = doc.already_imported;
                   const isSelected = selected.has(doc.parent_doc_id);
                   return (

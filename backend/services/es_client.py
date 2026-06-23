@@ -16,12 +16,12 @@ _keyword_field_cache: dict[tuple[str, str], str] = {}
 def resolve_keyword_field(es: Elasticsearch, index: str, field: str) -> str:
     """Return the exact-match (aggregatable / term-queryable) form of ``field``.
 
-    Indices differ in how they map id-like fields: rag_anything indices map
-    ``parent_doc_id`` as ``text`` with a ``.keyword`` sub-field (so you must
-    aggregate / term-query on ``parent_doc_id.keyword``), while others (e.g.
-    the ``aiast-*`` indices) map it directly as ``keyword`` (so ``.keyword``
-    does not exist and you must use ``parent_doc_id`` itself). Using the wrong
-    form silently returns zero results. Resolve the right one from the mapping.
+    Indices differ in how they map id-like fields: some map ``parent_doc_id``
+    as ``text`` with a ``.keyword`` sub-field (so you must aggregate /
+    term-query on ``parent_doc_id.keyword``), while others map it directly as
+    ``keyword`` (so ``.keyword`` does not exist and you must use
+    ``parent_doc_id`` itself). Using the wrong form silently returns zero
+    results. Resolve the right one from the mapping.
     """
     cache_key = (index, field)
     if cache_key in _keyword_field_cache:

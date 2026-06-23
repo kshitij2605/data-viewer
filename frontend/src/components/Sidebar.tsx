@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentStore } from '../stores/documentStore.ts';
 import * as docApi from '../api/documents.ts';
-import ESImportDialog from './ESImportDialog.tsx';
+import ImportDialog from './ImportDialog.tsx';
 
 type ViewMode = 'chunks' | 'markdown' | 'text' | 'tables' | 'images' | 'ai_review';
 
@@ -323,6 +323,20 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, wi
                             ES
                           </span>
                         )}
+                        {doc.source_type === 'veda' && (
+                          <span style={{
+                            fontSize: '10px',
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: 600,
+                            padding: '2px 5px',
+                            borderRadius: 'var(--radius-full)',
+                            background: 'rgba(168,85,247,0.15)',
+                            color: '#a855f7',
+                            flexShrink: 0,
+                          }}>
+                            VDB
+                          </span>
+                        )}
                         {doc.source_type === 'elasticsearch' && (
                           <button
                             style={{
@@ -342,6 +356,34 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, wi
                               e.stopPropagation();
                               if (confirm(`「${doc.pdf_title || doc.folder_name}」のチャンクをESから再取得しますか？`)) {
                                 await docApi.refreshFromES(doc.id);
+                                loadDocuments();
+                              }
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--color-primary)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.color = 'var(--color-sidebar-text)'; }}
+                          >
+                            &#x21bb;
+                          </button>
+                        )}
+                        {doc.source_type === 'veda' && (
+                          <button
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--color-sidebar-text)',
+                              cursor: 'pointer',
+                              padding: '0 4px',
+                              fontSize: '11px',
+                              opacity: 0.4,
+                              flexShrink: 0,
+                              lineHeight: 1,
+                              transition: 'all var(--transition-fast)',
+                            }}
+                            title="Vedaから再取得"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm(`「${doc.pdf_title || doc.folder_name}」のチャンクをVedaから再取得しますか？`)) {
+                                await docApi.refreshFromVeda(doc.id);
                                 loadDocuments();
                               }
                             }}
@@ -452,7 +494,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse, wi
         )}
       </aside>
 
-      <ESImportDialog
+      <ImportDialog
         open={folderDialogOpen}
         onClose={() => setFolderDialogOpen(false)}
       />

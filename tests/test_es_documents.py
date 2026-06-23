@@ -13,12 +13,10 @@ def mock_es_client():
     """Mock Elasticsearch client with test data."""
     es_mock = MagicMock()
 
-    # Mock indices response. Only indices whose names start with an allowed
-    # prefix (rag-anything-glmhybridocr- or aiast) are surfaced; everything
-    # else is filtered out.
+    # Mock indices response. All named indices are surfaced.
     es_mock.cat.indices.return_value = [
-        {"index": "rag-anything-glmhybridocr-bgem3-ruri-markdown-chunking-v5", "docs.count": "150"},
-        {"index": "aiast-ra-spo-index", "docs.count": "42"},
+        {"index": "rag-anything-markdown-chunking-v5", "docs.count": "150"},
+        {"index": "documents-index", "docs.count": "42"},
         {"index": "test_index", "docs.count": "10"},
         {"index": ".hidden", "docs.count": "0"},
     ]
@@ -88,12 +86,11 @@ def test_list_indices_returns_sorted_list(client, auth_headers, mock_es_client):
         assert resp.status_code == 200
         data = resp.json()
         names = [d["index_name"] for d in data]
-        # Both allowed prefixes are surfaced
-        assert "rag-anything-glmhybridocr-bgem3-ruri-markdown-chunking-v5" in names
-        assert "aiast-ra-spo-index" in names
-        # Non-matching indices are filtered out
-        assert "test_index" not in names
-        assert ".hidden" not in names
+        # All indices are surfaced — no prefix filtering
+        assert "rag-anything-markdown-chunking-v5" in names
+        assert "documents-index" in names
+        assert "test_index" in names
+        assert ".hidden" in names
         assert names == sorted(names)
 
 
@@ -318,7 +315,7 @@ def test_refresh_non_es_document_404(client, auth_headers, db_session):
 
 # ---------------------------------------------------------------------------
 # Tests: resolve_keyword_field (handles indices that map parent_doc_id as
-# either text+.keyword, e.g. rag-anything-*, or plain keyword, e.g. aiast-*)
+# either text+.keyword or plain keyword)
 # ---------------------------------------------------------------------------
 
 def _es_with_field_mapping(index, field, mapping):
@@ -340,8 +337,8 @@ def test_resolve_keyword_field_text_with_keyword_subfield():
 
 def test_resolve_keyword_field_plain_keyword():
     from backend.services.es_client import resolve_keyword_field
-    es = _es_with_field_mapping("aiast-idx", "parent_doc_id", {"type": "keyword"})
-    assert resolve_keyword_field(es, "aiast-idx", "parent_doc_id") == "parent_doc_id"
+    es = _es_with_field_mapping("keyword-idx", "parent_doc_id", {"type": "keyword"})
+    assert resolve_keyword_field(es, "keyword-idx", "parent_doc_id") == "parent_doc_id"
 
 
 def test_resolve_keyword_field_falls_back_on_error():

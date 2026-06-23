@@ -30,7 +30,11 @@ def _is_minio(doc: Document) -> bool:
 # ---------------------------------------------------------------------------
 
 def _get_full_markdown(doc: Document) -> str:
-    """Get full markdown content from local FS or MinIO."""
+    """Get full markdown content from local FS, MinIO, or a Veda-imported row."""
+    if doc.source_type == "veda":
+        if not doc.source_markdown:
+            raise HTTPException(status_code=404, detail="Markdown not available for this document")
+        return doc.source_markdown
     if _is_minio(doc):
         from backend.services.minio_client import fetch_minio_text
         prefix = doc.minio_prefix

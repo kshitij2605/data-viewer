@@ -199,9 +199,7 @@ export default function LoginPage() {
         >
           <div style={styles.cardAccent} />
           <div style={styles.logoContainer}>
-            <img src="/logo.png" alt="大塚商会" style={styles.logo} />
-            <span style={styles.companyName}>大塚商会</span>
-            <span style={styles.subtitle}>Data Viewer</span>
+            <span style={styles.companyName}>Data Viewer</span>
             <span style={styles.ldapBadge}>LDAP ID</span>
           </div>
 

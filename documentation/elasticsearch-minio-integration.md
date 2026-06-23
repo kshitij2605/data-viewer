@@ -321,6 +321,6 @@ User reverts chunk edit (DiffView → 元に戻す, or blue dot in table)
 
 If the user has re-chunked the document with a different strategy (e.g., changed from `markdown` to `page`), the new chunk indices no longer correspond to ES `chunk_id` values. In this case `_sync_chunk_to_es()` detects the mismatch (`chunk.chunking_strategy != doc.chunking_strategy`) and skips the ES update entirely, returning `es_synced: false`.
 
-### Index filtering
+### Index listing
 
-The ES index selector only shows indices whose name starts with `rag-anything-glmhybridocr-`, since only those contain the `minio_metadata` fields required by the platform. Other indices are excluded server-side in `GET /api/es/indices`.
+The ES index selector lists all indices reported by the cluster (`GET /api/es/indices`). Note that only indices containing the `minio_metadata` fields and the document structure the platform expects will import cleanly; selecting an unrelated index may yield no documents.

@@ -161,9 +161,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <button className="hamburger-btn" onClick={onMenuClick} title="メニュー">
           &#9776;
         </button>
-        <img src="/logo.png" alt="大塚商会" style={css.logo} />
-        <span className="header-company-name" style={css.companyName}>大塚商会</span>
-        <span style={css.appLabel}>Data Viewer</span>
+        <span className="header-company-name" style={css.companyName}>Data Viewer</span>
       </div>
 
       <div className="header-right" style={css.right}>

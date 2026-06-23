@@ -76,6 +76,9 @@ _COLUMN_MIGRATIONS = {
         ("minio_prefix", "TEXT"),
         ("layout_pdf_path", "TEXT"),
         ("chunking_strategy", "TEXT"),
+        ("veda_collection", "TEXT"),
+        ("veda_doc_id", "TEXT"),
+        ("source_markdown", "TEXT"),
     ],
 }
 

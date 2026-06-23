@@ -234,8 +234,12 @@ def chunk_document_endpoint(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Get markdown content from local FS or MinIO
-    if document.source_type == "elasticsearch" and document.minio_prefix:
+    # Get markdown content from local FS, MinIO, or a Veda-imported row
+    if document.source_type == "veda":
+        markdown_content = document.source_markdown
+        if not markdown_content:
+            raise HTTPException(status_code=400, detail="Markdown not available for this document")
+    elif document.source_type == "elasticsearch" and document.minio_prefix:
         from backend.services.minio_client import fetch_minio_text
         prefix = document.minio_prefix
         pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix

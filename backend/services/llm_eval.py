@@ -15,9 +15,9 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
-LLM_API_BASE = "http://llm-host:9000/v1"
-LLM_API_KEY = "__REDACTED_EMBEDDING_API_KEY__"
-LLM_MODEL = "Qwen/Qwen3.5-122B-A10B"
+LLM_API_BASE = settings.llm_api_base
+LLM_API_KEY = settings.llm_api_key
+LLM_MODEL = settings.llm_model
 
 # ---------------------------------------------------------------------------
 # Global throttle: a single process-wide semaphore caps how many requests are

@@ -1,11 +1,12 @@
 # Data Viewer — RAG Anything
 
-A full-stack platform for reviewing, chunking, and evaluating PDF documents processed through the **rag_anything** OCR/extraction pipeline. Supports both local document folders and Elasticsearch + MinIO as source, with LLM-based quality scoring, human feedback collection, and bi-directional chunk editing that syncs back to Elasticsearch.
+A full-stack platform for reviewing, chunking, and evaluating PDF documents processed through the **rag_anything** OCR/extraction pipeline. Supports three document sources — local document folders, Elasticsearch + MinIO, and the **Veda** vector database — with LLM-based quality scoring, human feedback collection, and bi-directional chunk editing that syncs back to Elasticsearch.
 
 ## Features
 
 - **ES + MinIO Integration** — Browse rag_anything Elasticsearch indices, import documents, serve images/tables/thumbnails/markdown from MinIO
-- **Document Management** — Load local pre-processed PDF folders or import from Elasticsearch; browse with page thumbnails
+- **Veda Vector DB Integration** — Browse Veda collections over its REST API, import documents (chunks grouped by `parent_doc_id`); markdown is reconstructed from chunk contents (text-only, read-only import)
+- **Document Management** — Load local pre-processed PDF folders, or import from Elasticsearch or Veda; browse with page thumbnails
 - **Multi-Strategy Chunking** — 5 strategies: character, recursive, markdown, semantic (BGE-M3 embeddings), page-wise
 - **ES Write-back** — Chunk edits sync back to Elasticsearch with re-embedding via BGE-M3; skipped if a different chunking strategy is selected
 - **LLM Quality Evaluation** — RAG usability and FAQ usability scores (0–10) via Qwen3.5-122B as judge, with multimodal AI suggestions comparing chunk text against page images
@@ -28,10 +29,12 @@ Browser (React 19 + TypeScript + Zustand)
     +-----+----------+----------+---------+
     |                |          |         |
 PostgreSQL        MinIO      Qwen LLM   BGE-M3
-(data_viewer DB) (assets)  (llm-host)  (embedding-host)
+(data_viewer DB) (assets)  (llm-host) (embedding-host)
           |
-     Elasticsearch
-    (chunk source)
+    +-----+--------------+
+    |                    |
+Elasticsearch         Veda
+(chunk source)   (vector DB source)
 ```
 
 See [documentation/system_architecture.md](documentation/system_architecture.md) for full technical detail.
@@ -51,6 +54,7 @@ Both require network access to:
 - BGE-M3 embedding endpoint (`embedding-host:8000`) — for semantic chunking and ES re-embedding
 - Elasticsearch (`elasticsearch-host:9200`) — for ES document import
 - MinIO (`minio-host:9000`) — for asset serving
+- Veda (`veda-host:6340`) — for Veda vector DB document import (optional)
 
 ## Setup
 
@@ -89,6 +93,10 @@ ES_URL=https://elasticsearch-host:9200
 ES_USER=__REDACTED_ES_USER__
 ES_PASSWORD=...
 ES_VERIFY_CERTS=false
+
+# Veda vector database — leave VEDA_URL empty to disable
+VEDA_URL=http://veda-host:6340
+VEDA_TOKEN=          # optional bearer token, if Veda requires auth
 
 # MinIO
 MINIO_ENDPOINT=minio-host:9000
@@ -143,9 +151,10 @@ Frontend dev server proxies `/api` to the backend and runs on `http://localhost:
 ## Usage
 
 1. **Login** — with your Active Directory account (if `LDAP_URL` is configured) or with a local account (see [Default Users](#default-users))
-2. **Load a document** — two ways:
+2. **Load a document** — three ways:
    - **Local folder** — click `+` in the sidebar, browse to a folder containing `metadata.json` and `*_with_captions.mmd`
-   - **Elasticsearch** — click the ES import button, select an index, pick a document
+   - **Elasticsearch** — click `+` in the sidebar, choose the **Elasticsearch** tab, select an index, pick a document
+   - **Veda** — click `+` in the sidebar, choose the **Veda** tab, select a collection, pick a document
 3. **Select a view mode** from the sidebar:
    - **Chunks** — chunk the document, view/edit chunks, run LLM evaluation
    - **Markdown** — split view with page-synced scrolling

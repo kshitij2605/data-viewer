@@ -24,9 +24,6 @@ COPY backend/ ./backend/
 # Copy built frontend from stage 1
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Copy logo asset
-COPY documentation/logo.png ./frontend/dist/logo.png
-
 # Persistent data lives in a mounted volume
 RUN mkdir -p data/thumbnails
 

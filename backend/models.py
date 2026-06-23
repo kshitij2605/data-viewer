@@ -31,12 +31,17 @@ class Document(Base):
     num_tables = Column(Integer, default=0)
     ai_review = Column(Text, nullable=True)
     ai_review_status = Column(Text, default="pending")  # pending, running, done, error
-    source_type = Column(Text, default="local")  # "local" or "elasticsearch"
+    source_type = Column(Text, default="local")  # "local", "elasticsearch", or "veda"
     es_index = Column(Text, nullable=True)
     es_parent_doc_id = Column(Text, nullable=True)
     minio_prefix = Column(Text, nullable=True)  # e.g. "index_name/pdf_name"
     layout_pdf_path = Column(Text, nullable=True)  # MinIO path to layout PDF for page thumbnails
     chunking_strategy = Column(Text, nullable=True)  # chunking strategy used in ES (e.g. "recursive", "page")
+    veda_collection = Column(Text, nullable=True)  # Veda collection name (source_type="veda")
+    veda_doc_id = Column(Text, nullable=True)  # Veda parent_doc_id (source_type="veda")
+    # Reconstructed markdown for sources that have no markdown file/object
+    # (e.g. Veda): built from the chunk contents at import time.
+    source_markdown = Column(Text, nullable=True)
     loaded_at = Column(TIMESTAMP, server_default=func.now())
     loaded_by_user_id = Column(Integer, ForeignKey("users.id"))
 

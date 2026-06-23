@@ -219,7 +219,9 @@ def _launch_ai_review(doc_id: int, folder_path: str, num_pages: int, num_images:
 
             # Get markdown content depending on source
             markdown_content = None
-            if doc.source_type == "elasticsearch" and doc.minio_prefix:
+            if doc.source_type == "veda":
+                markdown_content = doc.source_markdown
+            elif doc.source_type == "elasticsearch" and doc.minio_prefix:
                 from backend.services.minio_client import fetch_minio_text
                 prefix = doc.minio_prefix
                 pdf_name = prefix.split("/")[-1] if "/" in prefix else prefix

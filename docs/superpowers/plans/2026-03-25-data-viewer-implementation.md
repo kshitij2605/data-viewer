@@ -689,7 +689,7 @@ git add backend/api/feedback.py tests/test_feedback.py && git commit -m "feat: a
 
 - [ ] **Step 1: Create global.css**
 
-CSS variables for the 大塚商会 theme:
+CSS variables for the Data Viewer theme:
 - `--color-primary: #e63946` (red from logo)
 - `--color-primary-dark: #c1121f`
 - `--color-bg: #f8f9fa`
@@ -745,7 +745,7 @@ cd frontend && git add -A && cd .. && git commit -m "feat: add frontend stores, 
 Design requirements:
 - Centered card on a clean background
 - Company logo (served from `/documentation/logo.png`) prominently displayed
-- 大塚商会 text below logo
+- Data Viewer text below logo
 - Username and password fields with Japanese labels
 - Red login button matching `--color-primary`
 - Error message display with shake animation on failed login
@@ -784,7 +784,7 @@ git add frontend/src/ && git commit -m "feat: add login page with animation and 
 Design requirements (matching wireframe):
 - Left: current date/time in Japanese format (`2026/03/25 (火) 14:00`), updated every minute
 - Center-left: home icon (clickable, navigates to root)
-- Center: company logo image + 大塚商会 bold text
+- Center: company logo image + Data Viewer bold text
 - Right: Login/user display button (red), user avatar icon
 - Bottom border: 2px solid `--color-primary`
 - All hover states with 100ms transitions
@@ -1181,7 +1181,7 @@ cd frontend && npm run build && cd ..
 PORT=8080 bash start.sh
 ```
 
-Open `http://veda-host:8080` and verify full app works.
+Open `http://app-host:8080` and verify full app works.
 
 - [ ] **Step 4: Commit**
 

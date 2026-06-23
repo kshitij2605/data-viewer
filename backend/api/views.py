@@ -32,6 +32,10 @@ def _is_minio(doc: Document) -> bool:
 
 def _read_markdown(document_id: int, db: Session) -> str:
     doc = _get_document(document_id, db)
+    if doc.source_type == "veda":
+        if not doc.source_markdown:
+            raise HTTPException(status_code=404, detail="Markdown not available for this document")
+        return doc.source_markdown
     if _is_minio(doc):
         from backend.services.minio_client import fetch_minio_text
         prefix = doc.minio_prefix

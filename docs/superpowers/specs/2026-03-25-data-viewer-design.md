@@ -1,10 +1,10 @@
 # Data Viewer — Design Specification
 
-A GUI visualizer for document parsing output (from deepseek-ocr-api), built for 大塚商会 (Otsuka Shokai).
+A GUI visualizer for document parsing output (from deepseek-ocr-api), built for an internal team.
 
 ## Overview
 
-The application loads folders of processed document data (markdown, images, layout PDFs, metadata) and provides an interactive interface for viewing, chunking, editing, and giving feedback on extracted content. Deployed on `veda-host`.
+The application loads folders of processed document data (markdown, images, layout PDFs, metadata) and provides an interactive interface for viewing, chunking, editing, and giving feedback on extracted content. Deployed on `app-host`.
 
 ## Tech Stack
 
@@ -248,7 +248,7 @@ Each chunk stored with:
 ### Header
 - Current date/time in Japanese format (e.g., `2026/03/25 (火) 14:00`)
 - Home navigation icon
-- Company logo (from `documentation/logo.png`) + 大塚商会 text
+- Company logo (from `documentation/logo.png`) + Data Viewer text
 - Login button (red, `#e63946`) / logged-in user display
 - User avatar icon
 
@@ -357,7 +357,7 @@ SQLite-backed with pre-seeded users. JWT token-based sessions.
 
 ## Deployment
 
-- Server: `veda-host`
+- Server: `app-host`
 - FastAPI binds to `0.0.0.0` on a configurable port (default 8080)
 - Frontend built with `npm run build`, served as static files by FastAPI
 - SQLite database stored at `data/data_viewer.db`

@@ -2,7 +2,7 @@
 import pytest
 
 EXAMPLE_FOLDER = "/home/mac/25gitlab/deepseek-ocr-api/examples/output"
-SUBFOLDER = "【MM公式】Adobeといえば大塚商会_20251024-1-5"
+SUBFOLDER = "【MM公式】Adobeといえばサンプル商事_20251024-1-5"
 FULL_SUBFOLDER = f"{EXAMPLE_FOLDER}/{SUBFOLDER}"
 
 

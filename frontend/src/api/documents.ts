@@ -12,6 +12,8 @@ export interface Document {
   source_type?: string;
   es_index?: string;
   es_parent_doc_id?: string;
+  veda_collection?: string;
+  veda_doc_id?: string;
   chunking_strategy?: string | null;
 }
 
@@ -169,4 +171,33 @@ export async function importESDocument(parentDocId: string, index: string): Prom
 
 export async function refreshFromES(documentId: number): Promise<void> {
   await client.post(`/es/documents/${documentId}/refresh`);
+}
+
+// ---------------------------------------------------------------------------
+// Veda vector database integration
+// Reuses the ESIndex / ESDocument / ImportResult shapes — `index_name` carries
+// the Veda collection name.
+// ---------------------------------------------------------------------------
+
+export async function listVedaCollections(): Promise<ESIndex[]> {
+  const res = await client.get<ESIndex[]>('/veda/collections');
+  return res.data;
+}
+
+export async function listVedaDocuments(collection: string): Promise<ESDocument[]> {
+  const res = await client.get<ESDocument[]>('/veda/documents', { params: { collection } });
+  return res.data;
+}
+
+export async function importVedaDocument(parentDocId: string, collection: string): Promise<ImportResult> {
+  const res = await client.post<ImportResult>(
+    `/veda/documents/${encodeURIComponent(parentDocId)}/import`,
+    null,
+    { params: { collection } },
+  );
+  return res.data;
+}
+
+export async function refreshFromVeda(documentId: number): Promise<void> {
+  await client.post(`/veda/documents/${documentId}/refresh`);
 }

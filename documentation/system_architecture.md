@@ -131,10 +131,21 @@ Key relationships:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/es/indices | List ES indices (filtered to `rag-anything-glmhybridocr-*`) |
+| GET | /api/es/indices | List all ES indices reported by the cluster |
 | GET | /api/es/documents?index=X | List unique documents in an index (aggregated by parent_doc_id) |
 | POST | /api/es/documents/{parent_doc_id}/import | Import ES document into SQLite; triggers background AI review |
 | POST | /api/es/documents/{document_id}/refresh | Re-fetch chunks from ES, replacing local copies |
+
+#### Veda Documents (`backend/api/veda_documents.py`)
+
+Veda (project-mdb) is a third document source alongside local folders and Elasticsearch. Veda collections map to "indices", and records grouped by `parent_doc_id` map to documents. Veda stores text chunks only (no MinIO assets), so imported Veda documents are text/markdown only: the full markdown is reconstructed from the chunk contents at import time and stored in `documents.source_markdown`. Connection is via the Veda REST API (`VEDA_URL`, optional `VEDA_TOKEN`).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/veda/collections | List all Veda collections (with record counts) |
+| GET | /api/veda/documents?collection=X | List unique documents in a collection (grouped by parent_doc_id) |
+| POST | /api/veda/documents/{parent_doc_id}/import | Import a Veda document into SQLite; triggers background AI review |
+| POST | /api/veda/documents/{document_id}/refresh | Re-fetch chunks from Veda, replacing local copies |
 
 #### Chunks (`backend/api/chunks.py`)
 
