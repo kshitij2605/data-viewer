@@ -55,7 +55,7 @@ separate env var `APP_PORT` (defaults to `8080`).
 | `backend/db.py` | `get_engine()` now prefers `settings.database_url`; falls back to SQLite |
 | `backend/config.py` | Added `database_url: str = ""` setting |
 | `backend/requirements.txt` | Added `psycopg2-binary==2.9.10` |
-| `.env` | `DATABASE_URL=postgresql+psycopg2://postgres:__REDACTED_EMBEDDING_API_KEY__@postgres-host:5433/data_viewer` |
+| `.env` | `DATABASE_URL=postgresql+psycopg2://postgres:REDACTED@postgres-host:5433/data_viewer` |
 | `docker-compose.yml` | Passes `DATABASE_URL` to container |
 
 **`backend/db.py` — `get_engine()`:**

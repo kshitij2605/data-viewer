@@ -14,7 +14,7 @@ services:
       THUMBNAIL_DIR: /app/data/thumbnails
       # PostgreSQL connection (dedicated database; does not touch other DBs on
       # the server). Falls back to SQLite at DB_PATH if DATABASE_URL is empty.
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:__REDACTED_EMBEDDING_API_KEY__@postgres-host:5433/data_viewer}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:REDACTED@postgres-host:5433/data_viewer}
       # Number of gunicorn workers.
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-4}
       # Per-worker global cap on in-flight Qwen requests. Keep

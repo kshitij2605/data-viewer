@@ -90,7 +90,7 @@ EMBEDDING_MODEL=BAAI/bge-m3
 
 # Elasticsearch
 ES_URL=https://elasticsearch-host:9200
-ES_USER=__REDACTED_ES_USER__
+ES_USER=REDACTED
 ES_PASSWORD=...
 ES_VERIFY_CERTS=false
 

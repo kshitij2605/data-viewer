@@ -69,12 +69,12 @@ AI_SUGGESTION_IMAGE_MAX_PX=1024
 
 # ── Embedding ─────────────────────────────────────────────────────────────────
 EMBEDDING_ENDPOINT=http://embedding-host:8000
-EMBEDDING_API_KEY=__REDACTED_EMBEDDING_API_KEY__
+EMBEDDING_API_KEY=REDACTED
 EMBEDDING_MODEL=BAAI/bge-m3
 
 # ── Elasticsearch ─────────────────────────────────────────────────────────────
 ES_URL=https://elasticsearch-host:9200
-ES_USER=__REDACTED_ES_USER__
+ES_USER=REDACTED
 ES_PASSWORD=<password>
 ES_VERIFY_CERTS=false
 
@@ -87,7 +87,7 @@ MINIO_SECURE=false
 
 # ── LDAP / Active Directory (leave LDAP_URL empty to disable) ─────────────────
 LDAP_URL=ldap://ldap-host:389
-LDAP_BIND_DN=__REDACTED_LDAP_BIND_DN__
+LDAP_BIND_DN=REDACTED
 LDAP_BIND_CREDENTIALS=<password>
 LDAP_USER_SEARCH_BASE=DC=example,DC=com
 LDAP_SEARCH_FILTER=(sAMAccountName={{username}})
@@ -221,7 +221,7 @@ docker compose restart nginx
 |----------|---------|----------|-------------|
 | `DATABASE_URL` | _(empty = SQLite)_ | Recommended | Full SQLAlchemy DSN for PostgreSQL |
 | `DB_PATH` | `data/data_viewer.db` | No | SQLite path (fallback only) |
-| `SECRET_KEY` | `__REDACTED_SECRET_KEY__` | **Yes** | JWT signing key (min 32 chars) |
+| `SECRET_KEY` | `REDACTED` | **Yes** | JWT signing key (min 32 chars) |
 | `PORT` | `8080` | No | Host port nginx publishes |
 | `APP_PORT` | `8080` | No | Container-internal gunicorn bind port — do not change |
 | `WEB_CONCURRENCY` | `4` | No | gunicorn worker count |
@@ -233,7 +233,7 @@ docker compose restart nginx
 | `EMBEDDING_API_KEY` | — | Yes | Embedding server auth key |
 | `EMBEDDING_MODEL` | `BAAI/bge-m3` | No | Model name |
 | `ES_URL` | — | For ES features | Elasticsearch base URL |
-| `ES_USER` | `__REDACTED_ES_USER__` | No | Elasticsearch username |
+| `ES_USER` | `REDACTED` | No | Elasticsearch username |
 | `ES_PASSWORD` | — | For ES features | Elasticsearch password |
 | `ES_VERIFY_CERTS` | `false` | No | Verify TLS certs on ES connection |
 | `MINIO_ENDPOINT` | — | For ES features | MinIO host:port |

@@ -6,16 +6,16 @@ class Settings(BaseSettings):
     # Full SQLAlchemy URL. When set (e.g. PostgreSQL), it takes precedence over
     # db_path. Leave empty to use the SQLite file at db_path.
     database_url: str = ""
-    secret_key: str = "__REDACTED_SECRET_KEY__"
+    secret_key: str = "change-me"
     port: int = 8080
     embedding_endpoint: str = ""
-    embedding_api_key: str = "__REDACTED_EMBEDDING_API_KEY__"
+    embedding_api_key: str = ""
     embedding_model: str = "BAAI/bge-m3"
     thumbnail_dir: str = "data/thumbnails"
 
     # LLM (Qwen vLLM) — OpenAI-compatible endpoint
     llm_api_base: str = ""
-    llm_api_key: str = "__REDACTED_EMBEDDING_API_KEY__"
+    llm_api_key: str = ""
     llm_model: str = "Qwen/Qwen3.5-122B-A10B"
     # Global throttling so 100 users can't overload one GPU.
     llm_max_concurrency: int = 24   # global cap on in-flight Qwen requests
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Elasticsearch
     es_url: str = ""
-    es_user: str = "__REDACTED_ES_USER__"
+    es_user: str = ""
     es_password: str = ""
     es_verify_certs: bool = False
 

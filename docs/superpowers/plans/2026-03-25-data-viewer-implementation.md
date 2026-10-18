@@ -130,10 +130,10 @@ data/thumbnails/
 
 ```
 EMBEDDING_ENDPOINT=http://embedding-host:8000
-EMBEDDING_API_KEY=__REDACTED_EMBEDDING_API_KEY__
+EMBEDDING_API_KEY=REDACTED
 EMBEDDING_MODEL=BAAI/bge-m3
 DB_PATH=data/data_viewer.db
-SECRET_KEY=__REDACTED_SECRET_KEY__
+SECRET_KEY=REDACTED
 PORT=8080
 ```
 
@@ -163,10 +163,10 @@ from pathlib import Path
 
 class Settings(BaseSettings):
     db_path: str = "data/data_viewer.db"
-    secret_key: str = "__REDACTED_SECRET_KEY__"
+    secret_key: str = "REDACTED"
     port: int = 8080
     embedding_endpoint: str = "http://embedding-host:8000"
-    embedding_api_key: str = "__REDACTED_EMBEDDING_API_KEY__"
+    embedding_api_key: str = "REDACTED"
     embedding_model: str = "BAAI/bge-m3"
     thumbnail_dir: str = "data/thumbnails"
 

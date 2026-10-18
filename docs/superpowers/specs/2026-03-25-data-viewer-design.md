@@ -223,7 +223,7 @@ Embedding-based grouping. Splits text into sentences, generates embeddings via B
 
 **Params:** chunk_size (default 2000), similarity_threshold (default 0.5), min_chunk_size (default 100)
 
-**Embedding endpoint:** `http://embedding-host:8000` (model: BAAI/bge-m3, api-key: __REDACTED_EMBEDDING_API_KEY__)
+**Embedding endpoint:** `http://embedding-host:8000` (model: BAAI/bge-m3, api-key: REDACTED)
 
 ### 4. Markdown
 Header-aware splitting on H1/H2/H3 boundaries. Preserves header hierarchy by prepending parent headers to sub-chunks. Long sections are further split using recursive strategy. Continuation chunks marked with context breadcrumbs (e.g., `[続き: Title > Section]`).

@@ -105,7 +105,7 @@ Each chunk's `metadata.minio_metadata` now includes:
 | Setting | Env var | Default | Description |
 |---------|---------|---------|-------------|
 | `es_url` | `ES_URL` | `""` | Elasticsearch URL |
-| `es_user` | `ES_USER` | `"__REDACTED_ES_USER__"` | ES username |
+| `es_user` | `ES_USER` | `"REDACTED"` | ES username |
 | `es_password` | `ES_PASSWORD` | `""` | ES password |
 | `es_verify_certs` | `ES_VERIFY_CERTS` | `false` | Verify SSL certs |
 | `minio_endpoint` | `MINIO_ENDPOINT` | `""` | MinIO endpoint (host:port) |
